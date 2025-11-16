@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 26, 26, 46;
+  --background-end-rgb: 15, 52, 96;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #18181b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* Wallet Adapter Overrides */
+.wallet-adapter-button {
+  @apply bg-gradient-purple hover:opacity-90 transition-opacity;
+}
+
+.wallet-adapter-button-trigger {
+  @apply bg-gradient-blue;
+}
+
+.wallet-adapter-modal-wrapper {
+  @apply bg-dark-50/95 backdrop-blur-sm;
+}
+
+.wallet-adapter-modal {
+  @apply bg-dark-100 border border-dark-200 rounded-2xl;
+}
+
+.wallet-adapter-modal-title {
+  @apply text-white;
+}
+
+.wallet-adapter-modal-list {
+  @apply gap-2;
+}
+
+.wallet-adapter-modal-list-more {
+  @apply text-primary-400;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Glassmorphism effect */
+.glass {
+  background: rgba(39, 39, 42, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(63, 63, 70, 0.5);
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-purple-400 to-pink-400;
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary-500/20;
+}
