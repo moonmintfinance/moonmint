@@ -83,6 +83,16 @@ export function Footer() {
                   Telegram
                 </a>
               </li>
+              <li>
+                  <a
+                  href="https://github.com/moonmintfinance/moonmint/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
+                  GitHub
+                </a>
+              </li>
             </ul>
           </div>
 
