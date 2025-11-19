@@ -144,19 +144,20 @@ export function JupiterPlugin({
     }
 
     const justConnected = connected && !prevConnectedRef.current;
-    const justDisconnected = !connected && prevConnectedRef.current;
 
     if (justConnected && publicKey) {
       console.log('👛 Wallet connected, reinitializing Jupiter:', publicKey.toBase58());
       try {
-        window.Jupiter.resume?.();
-      } catch (error) {
-        console.error('Error resuming Jupiter:', error);
-      }
-    }
+        window.Jupiter.close?.();
+        setIsInitialized(false);
 
-    if (justDisconnected) {
-      console.log('👛 Wallet disconnected');
+        // Reinit after closing
+        setTimeout(() => {
+          initializeJupiter();
+        }, 100);
+      } catch (error) {
+        console.error('Error handling wallet connection:', error);
+      }
     }
 
     prevConnectedRef.current = connected;
