@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { IInit } from '@/types/jupiter';
 
@@ -15,37 +15,72 @@ export function JupiterPlugin({
 }: JupiterPluginProps) {
   const { publicKey, connected } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
+  const prevConnectedRef = useRef(false);
 
-  useEffect(() => {
+  const initializeJupiter = () => {
     if (typeof window === 'undefined' || !window.Jupiter) {
       return;
     }
 
-    if (connected && publicKey && !isInitialized) {
-      try {
-        const config: IInit = {
-          displayMode,
-          integratedTargetId: 'jupiter-plugin',
-          autoConnect: true,
-          widgetStyle: {
-            position: position,
-            size: 'default',
-          },
-          onSuccess: (data) => {
-            console.log('✅ Jupiter swap successful:', data);
-          },
-          onSwapError: (data) => {
-            console.error('❌ Jupiter swap error:', data);
-          },
-        };
+    try {
+      const config: IInit = {
+        displayMode,
+        integratedTargetId: 'jupiter-plugin',
+        autoConnect: true,
+        widgetStyle: {
+          position: position,
+          size: 'default',
+        },
+        onSuccess: (data) => {
+          console.log('Jupiter swap successful:', data);
+        },
+        onSwapError: (data) => {
+          console.error('Jupiter swap error:', data);
+        },
+      };
 
-        window.Jupiter.init(config);
-        setIsInitialized(true);
+      window.Jupiter.init(config);
+      setIsInitialized(true);
+      console.log('Jupiter widget initialized');
+    } catch (error) {
+      console.error('Error initializing Jupiter:', error);
+    }
+  };
+
+  // Initialize on mount
+  useEffect(() => {
+    if (isInitialized) {
+      return;
+    }
+
+    initializeJupiter();
+  }, [isInitialized]);
+
+  // Handle wallet connect/disconnect
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.Jupiter || !isInitialized) {
+      return;
+    }
+
+    const justConnected = connected && !prevConnectedRef.current;
+
+    if (justConnected && publicKey) {
+      console.log('Wallet connected, reinitializing Jupiter:', publicKey.toBase58());
+      try {
+        window.Jupiter.close?.();
+        setIsInitialized(false);
+
+        // Reinit after closing
+        setTimeout(() => {
+          initializeJupiter();
+        }, 100);
       } catch (error) {
-        console.error('Error initializing Jupiter:', error);
+        console.error('Error handling wallet connection:', error);
       }
     }
-  }, [connected, publicKey, isInitialized, displayMode, position]);
+
+    prevConnectedRef.current = connected;
+  }, [connected, publicKey, isInitialized]);
 
   if (displayMode === 'integrated') {
     return (
@@ -54,7 +89,6 @@ export function JupiterPlugin({
           id="jupiter-plugin"
           className="relative z-30"
           style={{
-            /* Ensure proper container styling */
             display: 'contents'
           }}
         />
