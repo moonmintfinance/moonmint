@@ -2,16 +2,18 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import type { IInit } from '@/types/jupiter';
+import type { IInit, Branding } from '@/types/jupiter';
 
 interface JupiterPluginProps {
   displayMode?: 'modal' | 'widget' | 'integrated';
   position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+  branding?: Branding;
 }
 
 export function JupiterPlugin({
   displayMode = 'widget',
-  position = 'bottom-right'
+  position = 'bottom-right',
+  branding
 }: JupiterPluginProps) {
   const { publicKey, connected } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -19,6 +21,15 @@ export function JupiterPlugin({
 
   // Get referral configuration from environment
   const jupiterReferralAccount = process.env.NEXT_PUBLIC_JUPITER_REFERRAL_ACCOUNT;
+
+  // Get branding from props or environment
+  const finalBranding: Branding | undefined = branding || {
+    logoUri: process.env.NEXT_PUBLIC_JUPITER_BRANDING_LOGO,
+    name: process.env.NEXT_PUBLIC_JUPITER_BRANDING_NAME,
+  };
+
+  // Only include branding if at least one property is defined
+  const hasBranding = finalBranding?.logoUri || finalBranding?.name;
 
   // FIXED: Jupiter expects basis points (50-255), not decimals
   // User sets percentage (e.g., "2.5" for 2.5%)
@@ -78,6 +89,15 @@ export function JupiterPlugin({
           console.error('❌ Jupiter swap error:', data);
         },
       };
+
+      // Add branding if configured
+      if (hasBranding) {
+        config.branding = finalBranding;
+        console.log('🎨 Jupiter branding configured:', {
+          name: finalBranding.name || '(not set)',
+          logoUri: finalBranding.logoUri ? '(provided)' : '(not set)',
+        });
+      }
 
       // For integrated mode, add container styles for better UX
       if (displayMode === 'integrated') {

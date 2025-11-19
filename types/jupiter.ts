@@ -19,6 +19,11 @@ export interface FormProps {
   referralFee?: number;
 }
 
+export interface Branding {
+  logoUri?: string;
+  name?: string;
+}
+
 export interface IInit {
   localStoragePrefix?: string;
   formProps?: FormProps;
@@ -32,6 +37,7 @@ export interface IInit {
   };
   containerClassName?: string;
   enableWalletPassthrough?: boolean;
+  branding?: Branding;
   onSuccess?: (data: any) => void;
   onSwapError?: (data: any) => void;
 }
