@@ -9,9 +9,7 @@ export default function TradePage() {
     <main className="min-h-screen flex flex-col relative">
       <Header />
 
-      {/* Reduced top padding from pt-32 to pt-24 (mobile) and md:pt-28 (desktop) */}
       <div className="flex-grow container mx-auto px-6 pt-24 md:pt-28 pb-20 max-w-2xl relative z-10">
-        {/* Reduced bottom margin from mb-12 to mb-8 */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">
             Trade Tokens
@@ -23,7 +21,10 @@ export default function TradePage() {
 
         {/* Jupiter Widget Container with proper z-index context */}
         <div className="relative z-30 flex justify-center">
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-md relative">
+            {/* Backdrop Shadow/Glow Effect */}
+            <div className="absolute inset-0 -z-10 transform scale-105 bg-gradient-to-r from-primary-500/20 via-purple-500/20 to-pink-500/20 blur-3xl rounded-3xl" />
+
             {/* Main Interface */}
             <JupiterPlugin displayMode="integrated" />
           </div>
