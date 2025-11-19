@@ -21,6 +21,19 @@ export const SERVICE_FEE_AUTHORITY_LAMPORTS =
 // Service fee recipient wallet address
 export const SERVICE_FEE_WALLET = process.env.NEXT_PUBLIC_SERVICE_FEE_WALLET || '';
 
+// Jupiter Referral Configuration
+export const JUPITER_CONFIG = {
+  // Referral account (your wallet that receives fees)
+  REFERRAL_ACCOUNT: process.env.NEXT_PUBLIC_JUPITER_REFERRAL_ACCOUNT || '',
+
+  // Fee charged to swapper (0.025 = 2.5%)
+  // Jupiter's default range is 0.01 (1%) to 0.05 (5%)
+  REFERRAL_FEE: parseFloat(process.env.NEXT_PUBLIC_JUPITER_REFERRAL_FEE || '1'),
+
+  // Check if referral program is enabled
+  IS_ENABLED: !!process.env.NEXT_PUBLIC_JUPITER_REFERRAL_ACCOUNT,
+};
+
 // Token validation constraints
 export const TOKEN_CONSTRAINTS = {
   MIN_NAME_LENGTH: 1,
