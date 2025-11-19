@@ -20,9 +20,7 @@ export default function TradePage() {
         </div>
 
         {/* Main Interface */}
-        <div className="bg-dark-100/50 backdrop-blur-md border border-dark-200 rounded-2xl overflow-hidden p-8">
           <JupiterPlugin displayMode="integrated" />
-        </div>
       </div>
 
       <Footer />
