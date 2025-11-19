@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { RootProvider } from '@/components/RootProvider';
@@ -22,6 +23,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <Script
+          src="https://plugin.jup.ag/plugin-v1.js"
+          strategy="beforeInteractive"
+          data-preload
+          defer
+        />
+      </head>
       <body className={`${inter.className} bg-gradient-dark min-h-screen text-white`}>
         <RootProvider>{children}</RootProvider>
         <Analytics />
