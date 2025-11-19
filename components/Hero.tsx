@@ -18,8 +18,7 @@ export function Hero() {
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-gray-400 leading-relaxed max-w-lg mx-auto md:mx-0">
-                The professional way to create Solana tokens. No code required,
-                securely mint your own coin in seconds.
+                Mint Solana tokens in seconds. Swap your favourite coins, and get paid to refer your friends.
               </p>
             </div>
 
