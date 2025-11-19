@@ -109,3 +109,92 @@ body {
 .card-hover {
   @apply transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary-500/20;
 }
+
+/* ============================================
+   JUPITER WIDGET STYLING
+   ============================================ */
+
+/* Main Jupiter container - ensure it's below header (z-50) */
+#jupiter-plugin {
+  z-index: 30 !important;
+}
+
+/* Jupiter plugin wrapper for integrated mode */
+.jupiter-widget-container {
+  position: relative;
+  z-index: 30;
+}
+
+/* Jupiter floating widget/modal overlay - needs to be above page content but below header */
+[class*="jup-widget"],
+[class*="jup-modal"],
+[class*="Jupiter"],
+.jup-container {
+  z-index: 40 !important;
+}
+
+/* Jupiter modal dialogs and floating widgets */
+[role="dialog"][class*="jup"],
+[role="dialog"][class*="Jupiter"],
+[class*="jup-modal-content"],
+[class*="jup-floating-widget"] {
+  z-index: 40 !important;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.95),
+    0 0 60px rgba(6, 213, 235, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(63, 63, 70, 0.6) !important;
+  border-radius: 16px !important;
+}
+
+/* Jupiter modal backdrop with blur effect */
+[class*="jup-modal-backdrop"],
+[class*="jup-overlay"],
+[role="presentation"] > [class*="jup"] {
+  backdrop-filter: blur(8px) !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 39 !important;
+}
+
+/* Jupiter iframe styling */
+iframe[src*="jupiter"],
+iframe[src*="jup"] {
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.95),
+    0 0 60px rgba(6, 213, 235, 0.2) !important;
+  border: 1px solid rgba(63, 63, 70, 0.5) !important;
+  border-radius: 16px !important;
+}
+
+/* Ensure Jupiter elements have proper styling */
+[class*="jupiter-plugin"] {
+  z-index: 30 !important;
+}
+
+/* Handle dynamically created Jupiter elements with position fixed */
+div[style*="position: fixed"][class*="jup"],
+div[style*="position: fixed"][class*="Jupiter"] {
+  z-index: 40 !important;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.95),
+    0 0 60px rgba(6, 213, 235, 0.2) !important;
+}
+
+/* Handle dynamically created Jupiter elements with position absolute */
+div[style*="position: absolute"][class*="jup"],
+div[style*="position: absolute"][class*="Jupiter"] {
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.9),
+    0 0 40px rgba(6, 213, 235, 0.15) !important;
+}
+
+/* Jupiter button styling for consistency */
+[class*="jup-button"],
+[class*="jupiter-button"] {
+  transition: all 0.2s ease !important;
+}
+
+[class*="jup-button"]:hover,
+[class*="jupiter-button"]:hover {
+  box-shadow: 0 10px 25px rgba(6, 213, 235, 0.3) !important;
+}

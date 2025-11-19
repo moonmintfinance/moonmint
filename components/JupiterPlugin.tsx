@@ -48,7 +48,18 @@ export function JupiterPlugin({
   }, [connected, publicKey, isInitialized, displayMode, position]);
 
   if (displayMode === 'integrated') {
-    return <div id="jupiter-plugin" />;
+    return (
+      <div className="jupiter-widget-container">
+        <div
+          id="jupiter-plugin"
+          className="relative z-30"
+          style={{
+            /* Ensure proper container styling */
+            display: 'contents'
+          }}
+        />
+      </div>
+    );
   }
 
   return null;
