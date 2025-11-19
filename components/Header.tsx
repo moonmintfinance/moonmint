@@ -11,10 +11,12 @@ export function Header() {
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div>
-              <h1 className="text-lg font-semibold text-white">Moon Mint</h1>
-              <p className="text-xs text-gray-400">Make the next moon shot</p>
-            </div>
+            <a href="/" className="block">
+              <div className="flex flex-col">
+                <h1 className="text-lg font-semibold text-white">Moon Mint</h1>
+                <p className="text-xs text-gray-400">Make the next moon shot</p>
+              </div>
+            </a>
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
@@ -23,6 +25,12 @@ export function Header() {
               className="text-sm text-gray-300 hover:text-white transition-colors"
             >
               Home
+            </a>
+            <a
+              href="/trade"
+              className="text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors"
+            >
+              Trade
             </a>
             <a
               href="/#mint"
