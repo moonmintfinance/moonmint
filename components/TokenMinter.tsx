@@ -347,6 +347,7 @@ export function TokenMinter() {
             metadata={pendingMint.metadata}
             config={pendingMint.config}
             totalFee={pendingMint.totalFee}
+            launchType={pendingMint.launchType}
             onConfirm={handleConfirmTransaction}
             onCancel={handleCancelTransaction}
           />

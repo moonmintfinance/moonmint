@@ -174,8 +174,7 @@ export class MeteoraLaunchService {
     const configKey = new PublicKey(METEORA_CONFIG.CONFIG_KEY);
 
     // 5. Derive pool address BEFORE creating the pool
-    const quoteMint = NATIVE_MINT; // SOL is the quote token
-    const poolAddress = deriveDbcPoolAddress(quoteMint, mint, configKey);
+    const poolAddress = deriveDbcPoolAddress(NATIVE_MINT, mint, configKey);
 
     console.log('🌊 Pool address (derived):', poolAddress.toBase58());
     console.log('🌊 Creating Meteora bonding curve pool...');
