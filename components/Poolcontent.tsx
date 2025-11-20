@@ -13,7 +13,8 @@ export function PoolContent({ mint }: PoolContentProps) {
     process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
   }`;
 
-  const dexscreenerUrl = `https://dexscreener.com/solana/${mint}`;
+  // DexScreener embed URL with proper parameters for chart view
+  const dexscreenerEmbedUrl = `https://dexscreener.com/solana/${mint}?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15`;
 
   // Jupiter form props to default to SOL -> Token swap
   const jupiterFormProps: Partial<FormProps> = {
@@ -46,10 +47,33 @@ export function PoolContent({ mint }: PoolContentProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* DexScreener Chart - Takes 2 columns on desktop */}
         <div className="lg:col-span-2">
-          <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl overflow-hidden h-[600px] sm:h-[800px]">
+          <style>{`
+            #dexscreener-embed {
+              position: relative;
+              width: 100%;
+              padding-bottom: 125%;
+            }
+            @media (min-width: 1400px) {
+              #dexscreener-embed {
+                padding-bottom: 75%;
+              }
+            }
+            #dexscreener-embed iframe {
+              position: absolute;
+              width: 100%;
+              height: 100%;
+              top: 0;
+              left: 0;
+              border: 0;
+              border-radius: 0.75rem;
+            }
+          `}</style>
+          <div
+            id="dexscreener-embed"
+            className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl overflow-hidden"
+          >
             <iframe
-              src={dexscreenerUrl}
-              className="w-full h-full border-0"
+              src={dexscreenerEmbedUrl}
               title="DexScreener Token Chart"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
