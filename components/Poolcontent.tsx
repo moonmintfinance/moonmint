@@ -1,30 +1,26 @@
 'use client';
 
+import { NATIVE_MINT } from '@solana/spl-token';
+import { JupiterPlugin } from './JupiterPlugin';
+import type { FormProps } from '@/types/jupiter';
+
 interface PoolContentProps {
   mint: string;
 }
 
 export function PoolContent({ mint }: PoolContentProps) {
-  // Determine the chain parameter based on environment
-  const getChainParam = (): string => {
-    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK;
-    switch (network) {
-      case 'mainnet-beta':
-        return 'solana';
-      case 'devnet':
-        return 'solana_devnet';
-      case 'testnet':
-        return 'solana_testnet';
-      default:
-        return 'solana_devnet';
-    }
-  };
-
   const solscanUrl = `https://solscan.io/token/${mint}?cluster=${
     process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
   }`;
 
-  const birdeyeUrl = `https://birdeye.so/token/${mint}?chain=${getChainParam()}`;
+  const dexscreenerUrl = `https://dexscreener.com/solana/${mint}`;
+
+  // Jupiter form props to default to SOL -> Token swap
+  const jupiterFormProps: Partial<FormProps> = {
+    swapMode: 'ExactIn',
+    initialInputMint: NATIVE_MINT.toBase58(), // SOL
+    initialOutputMint: mint, // The created token
+  };
 
   return (
     <div className="flex-grow container mx-auto px-6 pt-24 pb-20 max-w-7xl">
@@ -46,15 +42,42 @@ export function PoolContent({ mint }: PoolContentProps) {
         </div>
       </div>
 
-      {/* BirdEye Chart - Full Width */}
-      <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl overflow-hidden h-[600px] sm:h-[800px]">
-        <iframe
-          src={birdeyeUrl}
-          className="w-full h-full border-0"
-          title="BirdEye Token Chart"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* DexScreener Chart - Takes 2 columns on desktop */}
+        <div className="lg:col-span-2">
+          <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl overflow-hidden h-[600px] sm:h-[800px]">
+            <iframe
+              src={dexscreenerUrl}
+              className="w-full h-full border-0"
+              title="DexScreener Token Chart"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+
+        {/* Jupiter Widget - Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl p-4 sticky top-24">
+            <h2 className="text-lg font-semibold text-white mb-4">Quick Swap</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Swap SOL for {mint.slice(0, 4)}... instantly with Jupiter
+            </p>
+
+            {/* Jupiter Widget Container */}
+            <div className="relative z-30">
+              <JupiterPlugin
+                displayMode="integrated"
+                formProps={jupiterFormProps}
+                branding={{
+                  name: 'Moon Mint',
+                  logoUri: '/moon_mint_logo.png',
+                }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

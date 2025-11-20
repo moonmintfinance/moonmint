@@ -2,18 +2,20 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import type { IInit, Branding } from '@/types/jupiter';
+import type { IInit, Branding, FormProps } from '@/types/jupiter';
 
 interface JupiterPluginProps {
   displayMode?: 'modal' | 'widget' | 'integrated';
   position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
   branding?: Branding;
+  formProps?: Partial<FormProps>;
 }
 
 export function JupiterPlugin({
   displayMode = 'widget',
   position = 'bottom-right',
-  branding
+  branding,
+  formProps: customFormProps,
 }: JupiterPluginProps) {
   const { publicKey, connected } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -32,12 +34,10 @@ export function JupiterPlugin({
   const hasBranding = finalBranding?.logoUri || finalBranding?.name;
 
   // FIXED: Jupiter expects basis points (50-255), not decimals
-  // User sets percentage (e.g., "2.5" for 2.5%)
-  // We convert to basis points (e.g., 250 for 2.5%)
   const feePercentage = parseFloat(
     process.env.NEXT_PUBLIC_JUPITER_REFERRAL_FEE || '2.5'
   );
-  const jupiterReferralFee = Math.round(feePercentage * 100); // Convert % to basis points
+  const jupiterReferralFee = Math.round(feePercentage * 100);
 
   // Validate fee is in valid range
   if (jupiterReferralFee < 50 || jupiterReferralFee > 255) {
@@ -53,15 +53,16 @@ export function JupiterPlugin({
     }
 
     try {
-      // Build form props with optional referral configuration
+      // Build form props with optional referral configuration and custom props
       const formProps: any = {
         swapMode: 'ExactIn',
+        ...customFormProps, // Merge in custom form props (like token defaults)
       };
 
       // Add referral account if configured
       if (jupiterReferralAccount) {
         formProps.referralAccount = jupiterReferralAccount;
-        formProps.referralFee = jupiterReferralFee; // Now in basis points
+        formProps.referralFee = jupiterReferralFee;
 
         console.log(
           `💰 Jupiter referral configured:`,
