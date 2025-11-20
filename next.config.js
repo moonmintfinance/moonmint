@@ -10,6 +10,10 @@ const nextConfig = {
     };
     return config;
   },
+  // Added images config to allow Next.js Image component to load from Web3.Storage
+  images: {
+    domains: ['w3s.link', 'ipfs.w3s.link'],
+  },
   headers: async () => {
     // Build CSP based on environment
     const isDevelopment = process.env.NODE_ENV === 'development';
@@ -31,13 +35,15 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
       // Image sources - allow self, data URIs, and HTTPS URLs
-      "img-src 'self' data: https:",
+      // FIX: Added 'blob:' (for previews) and 'https://*.w3s.link' (for uploaded images)
+      "img-src 'self' data: blob: https: https://*.w3s.link",
 
       // Font sources - allow Google Fonts and data URIs
       "font-src 'self' data: https://fonts.gstatic.com",
 
       // Connect sources - Solana RPC endpoints + Jupiter + DexScreener
-      "connect-src 'self' https: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com https://dexscreener.com",
+      // FIX: Added w3s.link and web3.storage for uploads
+      "connect-src 'self' https: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com https://dexscreener.com https://*.web3.storage https://*.w3s.link",
 
       // Frame sources - allow DexScreener charts
       "frame-src 'self' https://dexscreener.com",
