@@ -71,7 +71,7 @@ export function TransactionConfirmation({
                 </div>
                 <div className="text-xs text-yellow-300 mt-1">
                   {isMeteora
-                    ? 'You are about to launch a token on Meteora\'s bonding curve. This creates a dynamic pricing mechanism and allocates your token to the curve.'
+                    ? 'You are about to launch a token on Moon Mints\'s bonding curve. This creates a dynamic pricing mechanism and allocates your token to the curve.'
                     : 'You are about to sign a transaction that will create a new token on Solana. Review all details carefully before confirming.'}
                 </div>
               </div>
@@ -222,7 +222,7 @@ export function TransactionConfirmation({
             onClick={onConfirm}
             className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 rounded-lg transition-colors"
           >
-            {isMeteora ? 'Launch on Meteora' : 'Sign & Create'}
+            {isMeteora ? 'Launch on Moon Mint bonding curve' : 'Sign & Create'}
           </button>
         </div>
       </div>

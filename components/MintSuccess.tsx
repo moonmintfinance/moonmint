@@ -53,12 +53,12 @@ export function MintSuccess({
         </div>
         <h3 className="text-2xl font-bold text-white mb-2">
           {launchType === LaunchType.METEORA
-            ? 'Token Launched on Meteora!'
+            ? 'Token Launched on Moon Mint bonding curve!'
             : 'Token Created Successfully'}
         </h3>
         <p className="text-gray-400">
           {launchType === LaunchType.METEORA
-            ? 'Your token is now live on Meteora\'s bonding curve. It may take a few minutes to display on SOLSCAN.'
+            ? 'Your token is now live on Moon Mint\'s bonding curve, powered by Meteora. It may take a few minutes to display on SOLSCAN.'
             : 'Your token has been minted on the Solana blockchain. It may take a few minutes to display on SOLSCAN.'}
         </p>
       </div>
@@ -87,7 +87,7 @@ export function MintSuccess({
           <div className="bg-dark-50 rounded-lg p-4 border-2 border-primary-500/30">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-primary-400 flex items-center gap-2">
-                🌊 Meteora Pool Address
+                Meteora Pool Address
               </label>
               <button
                 onClick={() => handleCopy(poolAddress, 'pool')}
@@ -182,7 +182,6 @@ export function MintSuccess({
       {launchType === LaunchType.METEORA && (
         <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
-            <div className="text-purple-400 text-xl">🌊</div>
             <div className="flex-1">
               <div className="font-semibold text-purple-300 text-sm mb-1">
                 About Meteora Bonding Curves

@@ -36,7 +36,7 @@ function FeeBreakdown({ config, launchType, meteoraConfig }: FeeBreakdownProps) 
     return (
       <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-4">
         <div className="text-sm">
-          <div className="font-medium text-primary-400 mb-3">Fee Breakdown (Meteora)</div>
+          <div className="font-medium text-primary-400 mb-3">Fee Breakdown</div>
           <div className="space-y-2 text-gray-400 text-sm">
             <div className="flex justify-between">
               <span>Pool creation fee:</span>
@@ -223,7 +223,7 @@ export function TokenForm({
                   Direct Token 2022 Launch
                 </div>
                 <p className="text-xs text-gray-400">
-                  Create token directly on-chain with fixed supply (standard method)
+                  Create token directly on-chain with fixed supply
                 </p>
               </div>
             </label>
@@ -238,24 +238,16 @@ export function TokenForm({
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-300 mb-1">
-                  Meteora Bonding Curve 🌊
+                  Moon Mint Bonding Curve
                 </div>
                 <p className="text-xs text-gray-400">
-                  Launch on Meteora's dynamic bonding curve for automated price discovery
+                  Lunch with no fees and instant liquidity on the Moon Mint bonding curve, powered by Meteora
                 </p>
               </div>
             </label>
 
             {launchType === LaunchType.METEORA && (
               <div className="ml-8 space-y-4 bg-primary-500/5 p-4 rounded-lg border border-primary-500/20">
-                <div className="flex items-start space-x-2">
-                  <div className="text-primary-400 text-sm">ℹ️</div>
-                  <p className="text-xs text-gray-300">
-                    Meteora bonding curves automatically manage token pricing based on supply and demand.
-                    The price increases as more tokens are bought from the curve.
-                  </p>
-                </div>
-
                 <label className="flex items-center space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -517,19 +509,30 @@ export function TokenForm({
       {launchType === LaunchType.METEORA && (
         <div className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-4 border-t border-dark-200 pt-6">
           <div className="flex items-start gap-3">
-            <div className="text-primary-400 text-lg">🌊</div>
             <div className="flex-1">
               <div className="font-semibold text-primary-300 text-sm mb-2">
                 About Token Authorities
               </div>
               <p className="text-xs text-gray-300 mb-3">
-                On Meteora bonding curves, your token is created with standard authorities that cannot be modified.
+                On our bonding curves, your token is created with standard authorities.
                 This ensures a fair and transparent launch for all participants.
               </p>
               <ul className="text-xs text-gray-400 space-y-1">
-                <li>✓ Mint authority: Cannot mint additional tokens</li>
-                <li>✓ Freeze authority: Revoked for user safety</li>
-                <li>✓ Update authority: Locked to maintain immutability</li>
+                <li>✓ Mint authority revoked: No one can mint additional tokens</li>
+                <li>✓ Freeze authority revoked: No one can tamper with transactions</li>
+                <li>✓ Update authority revoked: No one can change the tokens metadata</li>
+              </ul>
+              <p className="text-xs text-gray-300 mb-3"> </p>
+              <div className="font-semibold text-primary-300 text-sm mb-2">
+                Graduation
+              </div>
+               <p className="text-xs text-gray-300 mb-3">
+                Once your token reaches a 425 Solana market cap all liquidity is migrated to a Meteora pool
+              </p>
+              <ul className="text-xs text-gray-400 space-y-1">
+                <li>✓ All LP tokens are locked so no one can rug</li>
+                <li>✓ You get 5% of locked LP tokens which means you get 5% of all trading fees</li>
+                <li>✓ You get 10% of all trading fees before your token graduates</li>
               </ul>
             </div>
           </div>
@@ -581,7 +584,7 @@ export function TokenForm({
         ) : !isWalletConnected ? (
           'Connect Wallet to Create Token'
         ) : (
-          launchType === LaunchType.METEORA ? 'Launch on Meteora' : 'Create Token'
+          launchType === LaunchType.METEORA ? 'Launch on Moon Mint' : 'Create Token'
         )}
       </button>
     </form>
