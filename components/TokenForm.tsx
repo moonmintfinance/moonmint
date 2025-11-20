@@ -120,7 +120,7 @@ export function TokenForm({
     mintAuthority: false,
   });
 
-  const [launchType, setLaunchType] = useState<LaunchType>(LaunchType.DIRECT);
+  const [launchType, setLaunchType] = useState<LaunchType>(LaunchType.METEORA);
   const [meteoraConfig, setMeteoraConfig] = useState({
     enableFirstBuy: false,
     initialBuyAmount: 0.1,

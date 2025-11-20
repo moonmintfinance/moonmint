@@ -304,7 +304,7 @@ export function TokenMinter() {
             Create Your Token
           </h2>
           <p className="text-gray-400">
-            Mint a professional Solana Token 2022 with on-chain metadata or launch on Meteora's bonding curve
+            Mint a Solana Token to your wallet or launch on a Moon Mint bonding curve, powered by Meteora
           </p>
         </div>
 
