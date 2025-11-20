@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TokenMetadata, MintConfig } from '@/types/token';
-import { sanitizeInput, isValidImageUrl } from '@/utils/validation';
+import { sanitizeInput } from '@/utils/validation';
 import { SERVICE_FEE_BASE_SOL, SERVICE_FEE_AUTHORITY_SOL, METEORA_CONFIG } from '@/lib/constants';
+import { uploadImageToIPFS } from '@/services/web3Storage';
+import { toast } from 'react-hot-toast';
 
 interface TokenFormProps {
   onSubmit: (
@@ -126,7 +128,11 @@ export function TokenForm({
     initialBuyAmount: 0.1,
   });
 
-  const [imageUrlError, setImageUrlError] = useState<string | null>(null);
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-configure decimals and supply for Meteora
   useEffect(() => {
@@ -139,15 +145,25 @@ export function TokenForm({
     }
   }, [launchType]);
 
-  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value.trim();
-    setFormData({ ...formData, imageUrl: url });
+  // Handle file selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
 
-    if (url) {
-      const validation = isValidImageUrl(url);
-      setImageUrlError(validation.error || null);
-    } else {
-      setImageUrlError(null);
+      // Validate file size (e.g. max 4MB)
+      if (file.size > 4 * 1024 * 1024) {
+        toast.error('File size must be less than 4MB');
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('File must be an image');
+        return;
+      }
+
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
@@ -165,18 +181,27 @@ export function TokenForm({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isWalletConnected) {
-      return;
-    }
+    if (!isWalletConnected) return;
 
-    if (formData.imageUrl) {
-      const urlValidation = isValidImageUrl(formData.imageUrl);
-      if (!urlValidation.valid) {
-        setImageUrlError(urlValidation.error || 'Invalid image URL');
+    let finalImageUrl = formData.imageUrl;
+
+    // Upload image if a file was selected
+    if (imageFile) {
+      setIsUploading(true);
+      const loadingToast = toast.loading('Uploading image to Web3.Storage...');
+
+      try {
+        finalImageUrl = await uploadImageToIPFS(imageFile);
+        toast.success('Image uploaded successfully!', { id: loadingToast });
+      } catch (error) {
+        console.error('Upload failed:', error);
+        toast.error('Failed to upload image. Please try again.', { id: loadingToast });
+        setIsUploading(false);
         return;
       }
+      setIsUploading(false);
     }
 
     const sanitizedMetadata: TokenMetadata = {
@@ -186,7 +211,7 @@ export function TokenForm({
       description: formData.description
         ? sanitizeInput(formData.description)
         : undefined,
-      imageUrl: formData.imageUrl ? formData.imageUrl.trim() : undefined,
+      imageUrl: finalImageUrl,
     };
 
     onSubmit(
@@ -216,7 +241,7 @@ export function TokenForm({
                 checked={launchType === LaunchType.DIRECT}
                 onChange={() => setLaunchType(LaunchType.DIRECT)}
                 className="w-5 h-5 text-primary-500 mt-0.5"
-                disabled={isLoading || !isWalletConnected}
+                disabled={isLoading || isUploading || !isWalletConnected}
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-300 mb-1">
@@ -234,14 +259,14 @@ export function TokenForm({
                 checked={launchType === LaunchType.METEORA}
                 onChange={() => setLaunchType(LaunchType.METEORA)}
                 className="w-5 h-5 text-primary-500 mt-0.5"
-                disabled={isLoading || !isWalletConnected}
+                disabled={isLoading || isUploading || !isWalletConnected}
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-300 mb-1">
                   Moon Mint Bonding Curve
                 </div>
                 <p className="text-xs text-gray-400">
-                  Lunch with no fees and instant liquidity on the Moon Mint bonding curve, powered by Meteora
+                  Launch with no fees and instant liquidity on the Moon Mint bonding curve, powered by Meteora
                 </p>
               </div>
             </label>
@@ -257,7 +282,7 @@ export function TokenForm({
                       enableFirstBuy: e.target.checked
                     })}
                     className="w-5 h-5 rounded border-dark-300 text-primary-500"
-                    disabled={isLoading || !isWalletConnected}
+                    disabled={isLoading || isUploading || !isWalletConnected}
                   />
                   <div className="text-sm font-medium text-gray-300">
                     Enable First Buy
@@ -279,7 +304,7 @@ export function TokenForm({
                       min={0}
                       step={0.01}
                       className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      disabled={isLoading || !isWalletConnected}
+                      disabled={isLoading || isUploading || !isWalletConnected}
                       placeholder="0.1"
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -293,32 +318,57 @@ export function TokenForm({
         </div>
       )}
 
-      {/* Image URL */}
+      {/* Image Upload */}
       <div>
         <label
           className="block text-sm font-medium mb-3 text-gray-300"
-          htmlFor="imageUrl"
+          htmlFor="imageUpload"
         >
-          Image URL <span className="text-gray-500">(Optional)</span>
+          Token Icon <span className="text-gray-500">(Optional)</span>
         </label>
-        <input
-          id="imageUrl"
-          type="url"
-          value={formData.imageUrl}
-          onChange={handleImageUrlChange}
-          placeholder="e.g., https://example.com/token.png"
-          className={`w-full bg-dark-50 border ${
-            imageUrlError ? 'border-red-500' : 'border-dark-300'
-          } text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
-          disabled={isLoading || !isWalletConnected}
-          maxLength={200}
-        />
-        {imageUrlError && (
-          <p className="text-xs text-red-400 mt-2">{imageUrlError}</p>
-        )}
-        <p className="text-xs text-gray-500 mt-2">
-          Stores directly on-chain. Max 200 characters. Supports: JPG, PNG, GIF, WebP, SVG
-        </p>
+
+        <div className="flex items-start gap-4">
+          {/* Preview Box */}
+          <div className="flex-shrink-0">
+            <div className="w-20 h-20 rounded-lg border border-dark-300 bg-dark-50 overflow-hidden flex items-center justify-center">
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              )}
+            </div>
+          </div>
+
+          {/* File Input */}
+          <div className="flex-1">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+              id="file-upload"
+              disabled={isLoading || isUploading || !isWalletConnected}
+            />
+            <label
+              htmlFor="file-upload"
+              className="inline-block bg-dark-200 hover:bg-dark-300 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm font-medium border border-dark-300"
+            >
+              Choose File
+            </label>
+            <p className="text-xs text-gray-500 mt-2">
+              Supported: JPG, PNG, GIF. Max 4MB.
+              <br />
+              <span className="text-primary-400">Uploaded to IPFS via Web3.Storage for immutability</span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Token Name */}
@@ -335,7 +385,7 @@ export function TokenForm({
           className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
           required
           maxLength={32}
-          disabled={isLoading || !isWalletConnected}
+          disabled={isLoading || isUploading || !isWalletConnected}
         />
         <p className="text-xs text-gray-500 mt-1">Maximum 32 characters</p>
       </div>
@@ -356,7 +406,7 @@ export function TokenForm({
           className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all uppercase"
           required
           maxLength={10}
-          disabled={isLoading || !isWalletConnected}
+          disabled={isLoading || isUploading || !isWalletConnected}
         />
         <p className="text-xs text-gray-500 mt-1">Maximum 10 characters</p>
       </div>
@@ -382,7 +432,7 @@ export function TokenForm({
               max={9}
               className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               required
-              disabled={isLoading || !isWalletConnected}
+              disabled={isLoading || isUploading || !isWalletConnected}
             />
             <p className="text-xs text-gray-500 mt-1">Standard is 9</p>
           </div>
@@ -404,7 +454,7 @@ export function TokenForm({
               min={0}
               className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               required
-              disabled={isLoading || !isWalletConnected}
+              disabled={isLoading || isUploading || !isWalletConnected}
             />
             <p className="text-xs text-gray-500 mt-1">Number of tokens</p>
           </div>
@@ -426,7 +476,7 @@ export function TokenForm({
           className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"
           rows={3}
           maxLength={200}
-          disabled={isLoading || !isWalletConnected}
+          disabled={isLoading || isUploading || !isWalletConnected}
         />
       </div>
 
@@ -445,7 +495,7 @@ export function TokenForm({
                   checked={config.mintAuthority}
                   onChange={(e) => handleMintAuthorityChange(e.target.checked)}
                   className="w-5 h-5 rounded border-dark-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
-                  disabled={isLoading || !isWalletConnected}
+                  disabled={isLoading || isUploading || !isWalletConnected}
                 />
                 <div className="text-sm font-medium text-gray-300">
                   Revoke Mint Authority
@@ -458,16 +508,6 @@ export function TokenForm({
             <p className="text-xs text-gray-400 ml-8">
               No new additional tokens can be minted.
             </p>
-            <div className="ml-8 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-              <div className="flex gap-2">
-                <span className="text-yellow-500 font-semibold text-sm flex-shrink-0">
-                  Recommend!
-                </span>
-                <p className="text-xs text-gray-300">
-                  We recommend you revoke the right to mint new coins, this shows investors that your coin supply is fixed and cannot grow.
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="space-y-2">
@@ -478,7 +518,7 @@ export function TokenForm({
                   checked={config.freezeAuthority}
                   onChange={(e) => handleFreezeAuthorityChange(e.target.checked)}
                   className="w-5 h-5 rounded border-dark-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
-                  disabled={isLoading || !isWalletConnected}
+                  disabled={isLoading || isUploading || !isWalletConnected}
                 />
                 <div className="text-sm font-medium text-gray-300">
                   Revoke Freeze Authority
@@ -491,21 +531,11 @@ export function TokenForm({
             <p className="text-xs text-gray-400 ml-8">
               Revoke your right to freeze token transfers and transactions.
             </p>
-            <div className="ml-8 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-              <div className="flex gap-2">
-                <span className="text-yellow-500 font-semibold text-sm flex-shrink-0">
-                  Recommend!
-                </span>
-                <p className="text-xs text-gray-300">
-                  We recommend that you revoke freeze authority, this will make your coin safer for potential buyers.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Meteora-specific info (for Meteora launch) */}
+      {/* Meteora-specific info */}
       {launchType === LaunchType.METEORA && (
         <div className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-4 border-t border-dark-200 pt-6">
           <div className="flex items-start gap-3">
@@ -522,18 +552,6 @@ export function TokenForm({
                 <li>✓ Freeze authority revoked: No one can tamper with transactions</li>
                 <li>✓ Update authority revoked: No one can change the tokens metadata</li>
               </ul>
-              <p className="text-xs text-gray-300 mb-3"> </p>
-              <div className="font-semibold text-primary-300 text-sm mb-2">
-                Graduation
-              </div>
-               <p className="text-xs text-gray-300 mb-3">
-                Once your token reaches a 425 Solana market cap all liquidity is migrated to a Meteora pool
-              </p>
-              <ul className="text-xs text-gray-400 space-y-1">
-                <li>✓ All LP tokens are locked so no one can rug</li>
-                <li>✓ You get 5% of locked LP tokens which means you get 5% of all trading fees</li>
-                <li>✓ You get 10% of all trading fees before your token graduates</li>
-              </ul>
             </div>
           </div>
         </div>
@@ -545,17 +563,10 @@ export function TokenForm({
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={isLoading || !isWalletConnected || !!imageUrlError}
+        disabled={isLoading || isUploading || !isWalletConnected}
         className="w-full bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors"
-        title={
-          !isWalletConnected
-            ? 'Please connect your wallet first'
-            : imageUrlError
-              ? imageUrlError
-              : ''
-        }
       >
-        {isLoading ? (
+        {isLoading || isUploading ? (
           <span className="flex items-center justify-center space-x-2">
             <svg
               className="animate-spin h-5 w-5"
@@ -578,7 +589,7 @@ export function TokenForm({
               ></path>
             </svg>
             <span>
-              {launchType === LaunchType.METEORA ? 'Launching on Meteora...' : 'Creating Token...'}
+              {isUploading ? 'Uploading to IPFS...' : (launchType === LaunchType.METEORA ? 'Launching on Meteora...' : 'Creating Token...')}
             </span>
           </span>
         ) : !isWalletConnected ? (
