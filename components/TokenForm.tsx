@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TokenMetadata, MintConfig } from '@/types/token';
 import { sanitizeInput, isValidImageUrl } from '@/utils/validation';
 import { SERVICE_FEE_BASE_SOL, SERVICE_FEE_AUTHORITY_SOL, METEORA_CONFIG } from '@/lib/constants';
@@ -127,6 +127,17 @@ export function TokenForm({
   });
 
   const [imageUrlError, setImageUrlError] = useState<string | null>(null);
+
+  // Auto-configure decimals and supply for Meteora
+  useEffect(() => {
+    if (launchType === LaunchType.METEORA) {
+      setFormData((prev) => ({
+        ...prev,
+        decimals: 6, // Meteora standard
+        initialSupply: 1000000000, // 1 billion tokens
+      }));
+    }
+  }, [launchType]);
 
   const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value.trim();
@@ -358,53 +369,55 @@ export function TokenForm({
         <p className="text-xs text-gray-500 mt-1">Maximum 10 characters</p>
       </div>
 
-      {/* Decimals and Initial Supply */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="decimals">
-            Decimals <span className="text-red-400">*</span>
-          </label>
-          <input
-            id="decimals"
-            type="number"
-            value={formData.decimals}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                decimals: parseInt(e.target.value) || 0,
-              })
-            }
-            min={0}
-            max={9}
-            className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-            required
-            disabled={isLoading || !isWalletConnected}
-          />
-          <p className="text-xs text-gray-500 mt-1">Standard is 9</p>
-        </div>
+      {/* Decimals and Initial Supply - Only for Direct Launch */}
+      {launchType === LaunchType.DIRECT && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="decimals">
+              Decimals <span className="text-red-400">*</span>
+            </label>
+            <input
+              id="decimals"
+              type="number"
+              value={formData.decimals}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  decimals: parseInt(e.target.value) || 0,
+                })
+              }
+              min={0}
+              max={9}
+              className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              required
+              disabled={isLoading || !isWalletConnected}
+            />
+            <p className="text-xs text-gray-500 mt-1">Standard is 9</p>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="supply">
-            Initial Supply <span className="text-red-400">*</span>
-          </label>
-          <input
-            id="supply"
-            type="number"
-            value={formData.initialSupply}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                initialSupply: parseInt(e.target.value) || 0,
-              })
-            }
-            min={0}
-            className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-            required
-            disabled={isLoading || !isWalletConnected}
-          />
-          <p className="text-xs text-gray-500 mt-1">Number of tokens</p>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="supply">
+              Initial Supply <span className="text-red-400">*</span>
+            </label>
+            <input
+              id="supply"
+              type="number"
+              value={formData.initialSupply}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  initialSupply: parseInt(e.target.value) || 0,
+                })
+              }
+              min={0}
+              className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              required
+              disabled={isLoading || !isWalletConnected}
+            />
+            <p className="text-xs text-gray-500 mt-1">Number of tokens</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Description */}
       <div>
@@ -428,6 +441,10 @@ export function TokenForm({
       {/* Authorities (only for Direct launch) */}
       {launchType === LaunchType.DIRECT && (
         <div className="space-y-4 border-t border-dark-200 pt-6">
+          <div className="text-sm font-semibold text-primary-400 mb-4">
+            Token Authorities
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="flex items-center space-x-3 cursor-pointer flex-1">
@@ -491,6 +508,29 @@ export function TokenForm({
                   We recommend that you revoke freeze authority, this will make your coin safer for potential buyers.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Meteora-specific info (for Meteora launch) */}
+      {launchType === LaunchType.METEORA && (
+        <div className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-4 border-t border-dark-200 pt-6">
+          <div className="flex items-start gap-3">
+            <div className="text-primary-400 text-lg">🌊</div>
+            <div className="flex-1">
+              <div className="font-semibold text-primary-300 text-sm mb-2">
+                About Token Authorities
+              </div>
+              <p className="text-xs text-gray-300 mb-3">
+                On Meteora bonding curves, your token is created with standard authorities that cannot be modified.
+                This ensures a fair and transparent launch for all participants.
+              </p>
+              <ul className="text-xs text-gray-400 space-y-1">
+                <li>✓ Mint authority: Cannot mint additional tokens</li>
+                <li>✓ Freeze authority: Revoked for user safety</li>
+                <li>✓ Update authority: Locked to maintain immutability</li>
+              </ul>
             </div>
           </div>
         </div>
