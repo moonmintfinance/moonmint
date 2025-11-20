@@ -5,6 +5,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import toast from 'react-hot-toast';
 import { AtomicToken2022MintService } from '@/services/tokenMintService';
+import { MeteoraLaunchService } from '@/services/Meteoralaunchservice';
 import { TokenMetadata, MintConfig } from '@/types/token';
 import { validateTokenMetadata } from '@/utils/validation';
 import { submitGuard, validateTransaction, sanitizeErrorMessage } from '@/utils/security';
@@ -12,17 +13,18 @@ import { getReferralWallet } from '@/utils/referral';
 import { TokenForm, LaunchType } from './TokenForm';
 import { MintSuccess } from './MintSuccess';
 import { TransactionConfirmation } from './TransactionConfirmation';
-import { SERVICE_FEE_WALLET } from '@/lib/constants';
+import { SERVICE_FEE_WALLET, METEORA_CONFIG } from '@/lib/constants';
 
 export function TokenMinter() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction, connected } = useWallet();
+  const { publicKey, sendTransaction, signTransaction, signAllTransactions, connected } = useWallet();
 
   const [isLoading, setIsLoading] = useState(false);
   const [mintResult, setMintResult] = useState<{
     mintAddress: string;
     signature: string;
     launchType: LaunchType;
+    poolAddress?: string;
   } | null>(null);
 
   const [pendingMint, setPendingMint] = useState<{
@@ -30,11 +32,11 @@ export function TokenMinter() {
     config: MintConfig;
     totalFee: number;
     launchType: LaunchType;
+    meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number };
   } | null>(null);
 
   /**
    * Server-side confirmation helper
-   * Calls the API route to confirm transaction server-side
    */
   const confirmTransactionServerSide = async (signature: string): Promise<boolean> => {
     try {
@@ -65,7 +67,8 @@ export function TokenMinter() {
   const handleMintToken = async (
     metadata: TokenMetadata,
     config: MintConfig,
-    selectedLaunchType: LaunchType
+    selectedLaunchType: LaunchType,
+    meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number }
   ) => {
     if (!connected || !publicKey) {
       toast.error('Please connect your wallet first');
@@ -83,12 +86,36 @@ export function TokenMinter() {
       return;
     }
 
-    // Always use Direct Token 2022 (no more pump.fun choice)
-    const directService = new AtomicToken2022MintService(connection);
-    const totalFee = directService.calculateTotalServiceFee(config);
+    if (selectedLaunchType === LaunchType.METEORA) {
+      if (!METEORA_CONFIG.ENABLED) {
+        toast.error('Meteora bonding curves not configured');
+        return;
+      }
 
-    // Show confirmation dialog
-    setPendingMint({ metadata, config, totalFee, launchType: LaunchType.DIRECT });
+      // Calculate Meteora fees
+      const meteoraBaseFee = 0.05; // Approximate Meteora creation fee
+      const firstBuyAmount = meteoraConfig?.enableFirstBuy ? meteoraConfig.initialBuyAmount : 0;
+      const totalFee = (meteoraBaseFee + firstBuyAmount) * LAMPORTS_PER_SOL;
+
+      setPendingMint({
+        metadata,
+        config,
+        totalFee,
+        launchType: LaunchType.METEORA,
+        meteoraConfig,
+      });
+    } else {
+      // Direct Token 2022 launch
+      const directService = new AtomicToken2022MintService(connection);
+      const totalFee = directService.calculateTotalServiceFee(config);
+
+      setPendingMint({
+        metadata,
+        config,
+        totalFee,
+        launchType: LaunchType.DIRECT,
+      });
+    }
   };
 
   const handleConfirmTransaction = async () => {
@@ -97,7 +124,7 @@ export function TokenMinter() {
       return;
     }
 
-    const { metadata, config } = pendingMint;
+    const { metadata, config, launchType, meteoraConfig } = pendingMint;
 
     // Prevent double-submit
     if (!submitGuard.markProcessing('mint-token')) {
@@ -109,77 +136,125 @@ export function TokenMinter() {
     setPendingMint(null);
 
     setIsLoading(true);
-    const loadingToast = toast.loading('Creating your token...');
+    const loadingToast = toast.loading(
+      launchType === LaunchType.METEORA
+        ? 'Launching on Meteora bonding curve...'
+        : 'Creating your token...'
+    );
 
     try {
-      console.log('🚀 Starting atomic Token 2022 mint operation...');
+      if (launchType === LaunchType.METEORA) {
+        console.log('🚀 Starting Meteora bonding curve launch...');
 
-      const serviceFeeRecipient = SERVICE_FEE_WALLET
-        ? new PublicKey(SERVICE_FEE_WALLET)
-        : undefined;
+        if (!signTransaction || !signAllTransactions) {
+          throw new Error('Wallet does not support signing transactions');
+        }
 
-      const referralWalletStr = getReferralWallet();
-      const referralWallet = referralWalletStr
-        ? new PublicKey(referralWalletStr)
-        : undefined;
+        const meteoraService = new MeteoraLaunchService(connection, {
+          publicKey,
+          signTransaction,
+          signAllTransactions,
+        } as any);
 
-      const mintService = new AtomicToken2022MintService(
-        connection,
-        serviceFeeRecipient,
-        referralWallet
-      );
-      const mintKeypair = Keypair.generate();
-      const mint = mintKeypair.publicKey;
+        const result = await meteoraService.launchToken({
+          metadata,
+          config,
+          initialBuyAmountSol: meteoraConfig?.enableFirstBuy
+            ? meteoraConfig.initialBuyAmount
+            : undefined,
+        });
 
-      const feeBreakdown = mintService.getFeeBreakdown(config);
-      const totalFeeSol = feeBreakdown.total / LAMPORTS_PER_SOL;
+        console.log('✍️ Signing and sending transaction...');
 
-      console.log('📍 Mint address:', mint.toBase58());
-      console.log('💳 Connected wallet:', publicKey.toBase58());
-      console.log(`📊 Total service fee: ${totalFeeSol.toFixed(4)} SOL`);
+        const signature = await sendTransaction(result.transaction, connection, {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+        });
 
-      if (referralWallet) {
-        console.log('🎯 Referral wallet:', referralWallet.toBase58());
-      }
+        console.log('⏳ Confirming transaction on server...');
+        await confirmTransactionServerSide(signature);
 
-      const transaction = await mintService.buildMintTransaction(
-        publicKey,
-        mintKeypair,
-        metadata,
-        config
-      );
+        console.log('✅ Token launched on Meteora successfully!');
 
-      const transactionValidation = validateTransaction(transaction, [publicKey]);
-      if (!transactionValidation.valid) {
-        throw new Error(
-          'Transaction validation failed: ' + transactionValidation.errors.join(', ')
+        toast.success('Token launched on Meteora bonding curve!', {
+          id: loadingToast,
+        });
+
+        setMintResult({
+          mintAddress: result.mintAddress,
+          signature,
+          launchType: LaunchType.METEORA,
+          poolAddress: result.poolAddress,
+        });
+      } else {
+        // Direct Token 2022 launch
+        console.log('🚀 Starting atomic Token 2022 mint operation...');
+
+        const serviceFeeRecipient = SERVICE_FEE_WALLET
+          ? new PublicKey(SERVICE_FEE_WALLET)
+          : undefined;
+
+        const referralWalletStr = getReferralWallet();
+        const referralWallet = referralWalletStr
+          ? new PublicKey(referralWalletStr)
+          : undefined;
+
+        const mintService = new AtomicToken2022MintService(
+          connection,
+          serviceFeeRecipient,
+          referralWallet
         );
+        const mintKeypair = Keypair.generate();
+        const mint = mintKeypair.publicKey;
+
+        const feeBreakdown = mintService.getFeeBreakdown(config);
+        const totalFeeSol = feeBreakdown.total / LAMPORTS_PER_SOL;
+
+        console.log('📍 Mint address:', mint.toBase58());
+        console.log('💳 Connected wallet:', publicKey.toBase58());
+        console.log(`📊 Total service fee: ${totalFeeSol.toFixed(4)} SOL`);
+
+        if (referralWallet) {
+          console.log('🎯 Referral wallet:', referralWallet.toBase58());
+        }
+
+        const transaction = await mintService.buildMintTransaction(
+          publicKey,
+          mintKeypair,
+          metadata,
+          config
+        );
+
+        const transactionValidation = validateTransaction(transaction, [publicKey]);
+        if (!transactionValidation.valid) {
+          throw new Error(
+            'Transaction validation failed: ' + transactionValidation.errors.join(', ')
+          );
+        }
+
+        console.log('✅ Transaction validation passed');
+        console.log('✍️ Signing and sending transaction via wallet...');
+
+        const signature = await sendTransaction(transaction, connection, {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+        });
+
+        console.log('⏳ Confirming transaction on server...');
+        await confirmTransactionServerSide(signature);
+
+        console.log('✅ Token 2022 minted successfully!');
+
+        toast.success('Token created successfully!', {
+          id: loadingToast,
+        });
+
+        setMintResult({
+          mintAddress: mint.toBase58(),
+          signature,
+          launchType: LaunchType.DIRECT,
+        });
       }
-
-      console.log('✅ Transaction validation passed');
-      console.log('✍️  Signing and sending transaction via wallet...');
-
-      const signature = await sendTransaction(transaction, connection, {
-        skipPreflight: false,
-        preflightCommitment: 'confirmed',
-      });
-
-      console.log('⏳ Confirming transaction on server...');
-
-      // Use server-side confirmation
-      await confirmTransactionServerSide(signature);
-
-      console.log('✅ Token 2022 minted successfully!');
-
-      toast.success('Token created successfully!', {
-        id: loadingToast,
-      });
-
-      setMintResult({
-        mintAddress: mint.toBase58(),
-        signature,
-        launchType: LaunchType.DIRECT,
-      });
     } catch (error) {
       console.error('❌ Minting error:', error);
 
@@ -229,7 +304,7 @@ export function TokenMinter() {
             Create Your Token
           </h2>
           <p className="text-gray-400">
-            Mint a professional Solana Token 2022 with on-chain metadata in seconds
+            Mint a professional Solana Token 2022 with on-chain metadata or launch on Meteora's bonding curve
           </p>
         </div>
 
@@ -238,6 +313,7 @@ export function TokenMinter() {
             mintAddress={mintResult.mintAddress}
             signature={mintResult.signature}
             launchType={mintResult.launchType}
+            poolAddress={mintResult.poolAddress}
             onReset={handleReset}
           />
         ) : (

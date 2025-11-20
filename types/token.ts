@@ -26,3 +26,13 @@ export interface TokenValidationResult {
   isValid: boolean;
   errors: string[];
 }
+
+export enum LaunchType {
+  DIRECT = 'direct',
+  METEORA = 'meteora',
+}
+
+export interface MeteoraLaunchConfig {
+  initialBuyAmount?: number; // Optional initial buy in SOL
+  enableFirstBuy: boolean;
+}

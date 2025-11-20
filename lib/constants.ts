@@ -66,3 +66,9 @@ export const TOKEN_2022_CONFIG = {
   ENABLE_METADATA_POINTER: true, // Use metadata pointer extension
   ON_CHAIN_METADATA: true, // Store all metadata on-chain
 };
+
+// Meteora
+export const METEORA_CONFIG = {
+  CONFIG_KEY: process.env.NEXT_PUBLIC_METEORA_CONFIG_KEY || '',
+  ENABLED: !!process.env.NEXT_PUBLIC_METEORA_CONFIG_KEY,
+};
