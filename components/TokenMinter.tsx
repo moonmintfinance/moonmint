@@ -93,7 +93,7 @@ export function TokenMinter() {
       }
 
       // Calculate Meteora fees
-      const meteoraBaseFee = 0.05; // Approximate Meteora creation fee
+      const meteoraBaseFee = 0.00; // Approximate Meteora creation fee
       const firstBuyAmount = meteoraConfig?.enableFirstBuy ? meteoraConfig.initialBuyAmount : 0;
       const totalFee = (meteoraBaseFee + firstBuyAmount) * LAMPORTS_PER_SOL;
 

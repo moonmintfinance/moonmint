@@ -7,7 +7,6 @@ import {
   Connection,
   PublicKey,
   Keypair,
-  SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
@@ -16,24 +15,7 @@ import {
   deriveDbcPoolAddress
 } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { WalletContextState } from '@solana/wallet-adapter-react';
-import {
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  createAssociatedTokenAccountInstruction,
-  createMintToInstruction,
-  getAssociatedTokenAddressSync,
-  ExtensionType,
-  createInitializeMetadataPointerInstruction,
-  getMintLen,
-  createSetAuthorityInstruction,
-  AuthorityType,
-  NATIVE_MINT,
-} from '@solana/spl-token';
-import {
-  createInitializeInstruction,
-  pack,
-  TokenMetadata as SplTokenMetadata,
-} from '@solana/spl-token-metadata';
+import { NATIVE_MINT } from '@solana/spl-token';
 import { BN } from '@project-serum/anchor';
 import { TokenMetadata, MintConfig } from '@/types/token';
 import { METEORA_CONFIG, TRANSACTION_CONFIG } from '@/lib/constants';
@@ -120,6 +102,7 @@ export class MeteoraLaunchService {
 
   /**
    * Launch token on Meteora bonding curve
+   * Let the SDK handle mint and token creation - much simpler!
    */
   async launchToken(params: MeteoraLaunchParams): Promise<MeteoraLaunchResult> {
     this.validateConfig();
@@ -129,27 +112,24 @@ export class MeteoraLaunchService {
       throw new Error('Failed to initialize Meteora Client');
     }
 
-    const { metadata, config, initialBuyAmountSol = 0 } = params;
+    const { metadata, initialBuyAmountSol = 0 } = params;
     const payer = this.wallet.publicKey;
 
     console.log('🚀 Launching token on Meteora bonding curve...');
 
-    // 1. Create Token Mint
+    // 1. Generate mint keypair (SDK will create it)
     const mintKeypair = Keypair.generate();
     const mint = mintKeypair.publicKey;
 
     console.log('📍 Mint address:', mint.toBase58());
     console.log('💳 Payer:', payer.toBase58());
+    console.log('🪙 Token details:');
+    console.log('   Name:', metadata.name);
+    console.log('   Symbol:', metadata.symbol);
+    console.log('   Decimals:', metadata.decimals);
+    console.log('   Supply:', metadata.initialSupply.toLocaleString());
 
-    // 2. Build Token Creation Transaction
-    const mintTx = await this.createTokenTransaction(
-      payer,
-      mintKeypair,
-      metadata,
-      config
-    );
-
-    // 3. Prepare First Buy Parameters (if specified)
+    // 2. Prepare First Buy Parameters (if specified)
     let firstBuyParam = undefined;
     if (initialBuyAmountSol > 0) {
       const amountIn = await prepareSwapAmountParam(
@@ -161,7 +141,7 @@ export class MeteoraLaunchService {
       firstBuyParam = {
         buyer: payer,
         buyAmount: amountIn,
-        minimumAmountOut: new BN(1), // Minimum 1 token out
+        minimumAmountOut: new BN(1),
         referralTokenAccount: null,
       };
 
@@ -170,220 +150,66 @@ export class MeteoraLaunchService {
       );
     }
 
-    // 4. Get config key
+    // 3. Get config key
     const configKey = new PublicKey(METEORA_CONFIG.CONFIG_KEY);
 
-    // 5. Derive pool address BEFORE creating the pool
+    // 4. Derive pool address
     const poolAddress = deriveDbcPoolAddress(NATIVE_MINT, mint, configKey);
-
     console.log('🌊 Pool address (derived):', poolAddress.toBase58());
+
+    // 5. Use SDK's createPoolWithFirstBuy - it handles mint creation!
     console.log('🌊 Creating Meteora bonding curve pool...');
 
-    // 6. Create Meteora Pool + Optional First Buy
-    const poolTxResult = await this.client.pool.createPoolWithFirstBuy({
-      createPoolParam: {
-        baseMint: mint,
-        config: configKey,
-        name: metadata.name,
-        symbol: metadata.symbol,
-        uri: metadata.imageUrl || '',
-        payer: payer,
-        poolCreator: payer,
-      },
-      firstBuyParam: firstBuyParam,
-    });
+    try {
+      const poolTxResult = await this.client.pool.createPoolWithFirstBuy({
+        createPoolParam: {
+          baseMint: mint,
+          config: configKey,
+          name: metadata.name,
+          symbol: metadata.symbol,
+          uri: metadata.imageUrl || '',
+          payer: payer,
+          poolCreator: payer,
+        },
+        firstBuyParam: firstBuyParam,
+      });
 
-    // 7. Combine All Transactions
-    const finalTx = new Transaction();
+      console.log('✅ Pool transaction created by SDK');
 
-    // Add mint creation instructions FIRST (mint must exist before pool creation)
-    finalTx.add(...mintTx.instructions);
+      // 6. Build final transaction (SDK handles everything)
+      const finalTx = new Transaction();
 
-    // Add pool creation instructions
-    finalTx.add(...poolTxResult.createPoolTx.instructions);
+      // Add pool creation instructions
+      finalTx.add(...poolTxResult.createPoolTx.instructions);
 
-    // Add swap buy instructions (if applicable)
-    if (poolTxResult.swapBuyTx) {
-      finalTx.add(...poolTxResult.swapBuyTx.instructions);
-      console.log('✅ First buy included in transaction');
-    }
+      // Add swap buy instructions (if applicable)
+      if (poolTxResult.swapBuyTx) {
+        finalTx.add(...poolTxResult.swapBuyTx.instructions);
+        console.log('✅ First buy included in transaction');
+      }
 
-    // Set transaction metadata
-    finalTx.feePayer = payer;
-    const { blockhash } = await this.connection.getLatestBlockhash(
-      TRANSACTION_CONFIG.COMMITMENT
-    );
-    finalTx.recentBlockhash = blockhash;
-
-    // Partially sign with mint keypair
-    finalTx.partialSign(mintKeypair);
-
-    console.log(
-      `📝 Transaction built with ${finalTx.instructions.length} instructions`
-    );
-
-    return {
-      transaction: finalTx,
-      mintAddress: mint.toBase58(),
-      poolAddress: poolAddress.toBase58(),
-    };
-  }
-
-  /**
-   * Create Token 2022 with metadata
-   */
-  private async createTokenTransaction(
-    payer: PublicKey,
-    mintKeypair: Keypair,
-    metadata: TokenMetadata,
-    config: MintConfig
-  ): Promise<Transaction> {
-    const mint = mintKeypair.publicKey;
-    const decimals = metadata.decimals;
-    const supply = metadata.initialSupply;
-    const amount = BigInt(supply) * BigInt(10 ** decimals);
-
-    console.log('🪙 Token details:');
-    console.log('   Name:', metadata.name);
-    console.log('   Symbol:', metadata.symbol);
-    console.log('   Decimals:', decimals);
-    console.log('   Supply:', supply.toLocaleString());
-
-    const transaction = new Transaction();
-
-    // Build Token Metadata
-    const tokenMetadata: SplTokenMetadata = {
-      mint: mint,
-      name: metadata.name,
-      symbol: metadata.symbol,
-      uri: metadata.imageUrl || '',
-      additionalMetadata: [],
-    };
-
-    // Calculate space requirements
-    const metadataLen = pack(tokenMetadata).length;
-    const metadataExtension = 4; // TYPE_SIZE + LENGTH_SIZE
-    const spaceForAccount = getMintLen([ExtensionType.MetadataPointer]);
-    const fullSpace = spaceForAccount + metadataExtension + metadataLen;
-    const lamports =
-      await this.connection.getMinimumBalanceForRentExemption(fullSpace);
-
-    console.log('📊 Space allocation:');
-    console.log('   Account space:', spaceForAccount, 'bytes');
-    console.log('   Metadata length:', metadataLen, 'bytes');
-    console.log('   Full space:', fullSpace, 'bytes');
-    console.log('   Rent:', (lamports / LAMPORTS_PER_SOL).toFixed(4), 'SOL');
-
-    // Get associated token account
-    const ata = getAssociatedTokenAddressSync(
-      mint,
-      payer,
-      false,
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    // 1. Create mint account
-    transaction.add(
-      SystemProgram.createAccount({
-        fromPubkey: payer,
-        newAccountPubkey: mint,
-        space: fullSpace,
-        lamports,
-        programId: TOKEN_2022_PROGRAM_ID,
-      })
-    );
-
-    // 2. Initialize metadata pointer
-    transaction.add(
-      createInitializeMetadataPointerInstruction(
-        mint,
-        payer,
-        mint,
-        TOKEN_2022_PROGRAM_ID
-      )
-    );
-
-    // 3. Initialize mint
-    transaction.add(
-      createInitializeMint2Instruction(
-        mint,
-        decimals,
-        payer, // Mint authority (will be revoked if config.mintAuthority = true)
-        payer, // Freeze authority (will be revoked if config.freezeAuthority = true)
-        TOKEN_2022_PROGRAM_ID
-      )
-    );
-
-    // 4. Initialize metadata
-    transaction.add(
-      createInitializeInstruction({
-        programId: TOKEN_2022_PROGRAM_ID,
-        metadata: mint,
-        mint: mint,
-        name: metadata.name,
-        symbol: metadata.symbol,
-        uri: metadata.imageUrl || '',
-        mintAuthority: payer,
-        updateAuthority: payer,
-      })
-    );
-
-    // 5. Create associated token account
-    transaction.add(
-      createAssociatedTokenAccountInstruction(
-        payer,
-        ata,
-        payer,
-        mint,
-        TOKEN_2022_PROGRAM_ID
-      )
-    );
-
-    // 6. Mint initial supply
-    if (supply > 0) {
-      transaction.add(
-        createMintToInstruction(
-          mint,
-          ata,
-          payer,
-          amount,
-          [],
-          TOKEN_2022_PROGRAM_ID
-        )
+      // Set transaction metadata
+      finalTx.feePayer = payer;
+      const { blockhash } = await this.connection.getLatestBlockhash(
+        TRANSACTION_CONFIG.COMMITMENT
       );
-      console.log('✅ Minting initial supply to creator');
-    }
+      finalTx.recentBlockhash = blockhash;
 
-    // 7. Revoke mint authority (if requested)
-    if (config.mintAuthority) {
-      transaction.add(
-        createSetAuthorityInstruction(
-          mint,
-          payer,
-          AuthorityType.MintTokens,
-          null,
-          [],
-          TOKEN_2022_PROGRAM_ID
-        )
+      // Partially sign with mint keypair
+      finalTx.partialSign(mintKeypair);
+
+      console.log(
+        `📝 Transaction built with ${finalTx.instructions.length} instructions`
       );
-      console.log('🔒 Mint authority will be revoked');
-    }
 
-    // 8. Revoke freeze authority (if requested)
-    if (config.freezeAuthority) {
-      transaction.add(
-        createSetAuthorityInstruction(
-          mint,
-          payer,
-          AuthorityType.FreezeAccount,
-          null,
-          [],
-          TOKEN_2022_PROGRAM_ID
-        )
-      );
-      console.log('🔒 Freeze authority will be revoked');
+      return {
+        transaction: finalTx,
+        mintAddress: mint.toBase58(),
+        poolAddress: poolAddress.toBase58(),
+      };
+    } catch (error) {
+      console.error('❌ Error creating pool with SDK:', error);
+      throw error;
     }
-
-    return transaction;
   }
 }

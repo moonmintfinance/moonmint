@@ -29,7 +29,7 @@ interface FeeBreakdownProps {
 
 function FeeBreakdown({ config, launchType, meteoraConfig }: FeeBreakdownProps) {
   if (launchType === LaunchType.METEORA) {
-    const meteoraBaseFee = 0.05;
+    const meteoraBaseFee = 0.00;
     const firstBuyFee = meteoraConfig.enableFirstBuy ? meteoraConfig.initialBuyAmount : 0;
     const totalFee = meteoraBaseFee + firstBuyFee;
 
