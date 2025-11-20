@@ -42,35 +42,42 @@ export default function CurvesPage() {
         const client = new DynamicBondingCurveClient(connection, null as any);
 
         // Fetch only pools created with YOUR config key
+        // ✅ This filters automatically at the SDK level - only YOUR platform's tokens are returned
         const configKey = new PublicKey(METEORA_CONFIG.CONFIG_KEY);
         const allPools = await client.state.getPoolsByConfig(configKey);
+
+        console.log('✅ Got pools from SDK. Count:', allPools.length);
 
         // Get metadata for each pool
         const poolsWithInfo = await Promise.all(
           allPools.map(async (poolItem) => {
             try {
-              // Properly extract ProgramAccount structure
-              // getPoolsByConfig returns ProgramAccount<VirtualPool>[] with { pubkey, account } structure
-              const poolAddress = (poolItem as any).pubkey as PublicKey;
+              // ✅ CORRECT STRUCTURE: publicKey (not pubkey) + account
+              const poolAddress = (poolItem as any).publicKey as string | PublicKey;
               const pool = (poolItem as any).account as any;
 
               // Validate we have the required data
               if (!poolAddress || !pool) {
-                console.warn('Invalid pool structure - missing pubkey or account');
+                console.warn('Invalid pool structure - missing address or account');
                 return null;
               }
 
+              // Convert poolAddress to PublicKey if it's a string
+              const poolPubKey = typeof poolAddress === 'string'
+                ? new PublicKey(poolAddress)
+                : poolAddress;
+
               // Get pool progress using the correct PublicKey
-              const progress = await client.state.getPoolCurveProgress(poolAddress);
+              const progress = await client.state.getPoolCurveProgress(poolPubKey);
 
               // Try to get metadata
               let metadata = null;
               try {
-                const metadataList = await client.state.getPoolMetadata(poolAddress);
+                const metadataList = await client.state.getPoolMetadata(poolPubKey);
                 metadata = metadataList[0];
               } catch (metadataErr) {
                 // Metadata not available - this is not a fatal error
-                console.debug('Metadata not available for pool:', poolAddress.toBase58());
+                console.debug('Metadata not available for pool:', poolPubKey.toBase58());
               }
 
               // Generate symbol from name (metadata doesn't have symbol field)
@@ -78,10 +85,14 @@ export default function CurvesPage() {
                 ? metadata.name.slice(0, 4).toUpperCase()
                 : '???';
 
+              // Extract baseMint and creator (already in pool.account)
+              const baseMint = pool.baseMint;
+              const creator = pool.creator;
+
               return {
-                address: poolAddress.toBase58(),
-                baseMint: pool.baseMint?.toBase58?.() || String(pool.baseMint),
-                creator: pool.creator?.toBase58?.() || String(pool.creator),
+                address: poolPubKey.toBase58?.() || String(poolAddress),
+                baseMint: typeof baseMint === 'string' ? baseMint : baseMint?.toBase58?.() || String(baseMint),
+                creator: typeof creator === 'string' ? creator : creator?.toBase58?.() || String(creator),
                 name: metadata?.name || 'Unknown Token',
                 symbol: symbol,
                 progress: Math.round(progress * 100),
@@ -97,7 +108,8 @@ export default function CurvesPage() {
         const validPools = poolsWithInfo
           .filter((p) => p !== null) as PoolInfo[];
 
-        setPools(validPools.reverse()); // Most recent first
+        console.log('✅ Valid pools:', validPools.length);
+        setPools(validPools);
       } catch (err) {
         console.error('Error fetching pools:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch pools');
@@ -120,7 +132,7 @@ export default function CurvesPage() {
             Recently Launched Tokens
           </h1>
           <p className="text-gray-400">
-            Discover tokens launching on Moon Mint bonding curves
+            Discover tokens launched on Moon Mint bonding curves
           </p>
         </div>
 

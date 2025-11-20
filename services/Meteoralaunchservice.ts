@@ -77,9 +77,9 @@ export class MeteoraLaunchService {
     };
 
     try {
-      // @ts-ignore - SDK type compatibility with wallet adapter
       this.client = new DynamicBondingCurveClient(
         this.connection,
+        // @ts-ignore
         anchorWallet
       );
       console.log('✅ Meteora DBC Client initialized');
