@@ -128,7 +128,6 @@ export function MintSuccess({
           href={`/pools/${mintAddress}`}
           className="flex-1 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg shadow-primary-500/20 text-center flex items-center justify-center gap-2"
         >
-          <span>🚀</span>
           <span>Trade Now & View Chart</span>
         </a>
 
@@ -155,29 +154,6 @@ export function MintSuccess({
         </a>
       </div>
 
-      {/* Next Steps */}
-      <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-4 mb-6">
-        <div className="text-sm text-gray-300">
-          <div className="font-semibold mb-2">Next Steps</div>
-          {launchType === LaunchType.METEORA ? (
-            <ul className="list-disc list-inside space-y-1 text-xs text-gray-400">
-              <li>Your token is now live on Meteora's bonding curve</li>
-              <li>Price discovery happens automatically as users trade</li>
-              <li>Share your pool link to get more buyers</li>
-              <li>Monitor your token's performance on Meteora</li>
-              <li>The curve will automatically graduate to a DAMM pool when the threshold is reached</li>
-            </ul>
-          ) : (
-            <ul className="list-disc list-inside space-y-1 text-xs text-gray-400">
-              <li>Your token is now live on Solana</li>
-              <li>You can view it in your wallet</li>
-              <li>Share the mint address with others</li>
-              <li>Add liquidity to DEXs like Raydium or Orca</li>
-            </ul>
-          )}
-        </div>
-      </div>
-
       {/* Meteora-specific info */}
       {launchType === LaunchType.METEORA && (
         <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-6">
@@ -189,7 +165,7 @@ export function MintSuccess({
               <p className="text-xs text-gray-300">
                 Your token uses a dynamic bonding curve that automatically adjusts pricing based on supply and demand.
                 As more people buy, the price increases. Once the curve reaches its migration threshold,
-                your token will automatically graduate to a full DAMM (Dynamic Automated Market Maker) pool with deep liquidity.
+                your token will automatically graduate to a full DAMM (Dynamic Automated Market Maker) pool on Meteora.
               </p>
             </div>
           </div>

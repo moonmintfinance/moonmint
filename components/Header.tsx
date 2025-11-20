@@ -96,6 +96,7 @@ export function Header() {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Create Token', href: '/#mint' },
+    { name: 'New tokens', href: '/new-tokens' },
     { name: 'Swap', href: '/swap' },
     { name: 'Referral Program', href: '/referral' },
   ];
