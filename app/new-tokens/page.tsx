@@ -49,11 +49,18 @@ export default function CurvesPage() {
         const poolsWithInfo = await Promise.all(
           allPools.map(async (poolItem) => {
             try {
-              // Handle both ProgramAccount wrapper and direct VirtualPool structures
-              const pool = (poolItem as any).account || poolItem;
-              const poolAddress = (poolItem as any).pubkey || pool;
+              // Properly extract ProgramAccount structure
+              // getPoolsByConfig returns ProgramAccount<VirtualPool>[] with { pubkey, account } structure
+              const poolAddress = (poolItem as any).pubkey as PublicKey;
+              const pool = (poolItem as any).account as any;
 
-              // Get pool progress
+              // Validate we have the required data
+              if (!poolAddress || !pool) {
+                console.warn('Invalid pool structure - missing pubkey or account');
+                return null;
+              }
+
+              // Get pool progress using the correct PublicKey
               const progress = await client.state.getPoolCurveProgress(poolAddress);
 
               // Try to get metadata
@@ -61,8 +68,9 @@ export default function CurvesPage() {
               try {
                 const metadataList = await client.state.getPoolMetadata(poolAddress);
                 metadata = metadataList[0];
-              } catch {
-                // Metadata not available
+              } catch (metadataErr) {
+                // Metadata not available - this is not a fatal error
+                console.debug('Metadata not available for pool:', poolAddress.toBase58());
               }
 
               // Generate symbol from name (metadata doesn't have symbol field)
@@ -71,9 +79,9 @@ export default function CurvesPage() {
                 : '???';
 
               return {
-                address: poolAddress.toBase58?.() || String(poolAddress),
-                baseMint: pool.baseMint.toBase58?.() || String(pool.baseMint),
-                creator: pool.creator.toBase58?.() || String(pool.creator),
+                address: poolAddress.toBase58(),
+                baseMint: pool.baseMint?.toBase58?.() || String(pool.baseMint),
+                creator: pool.creator?.toBase58?.() || String(pool.creator),
                 name: metadata?.name || 'Unknown Token',
                 symbol: symbol,
                 progress: Math.round(progress * 100),
