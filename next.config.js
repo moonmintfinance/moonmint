@@ -47,6 +47,10 @@ const nextConfig = {
       // **FIXED: Added 'https:' to allow fetching user-provided image URLs from any HTTPS source**
       "connect-src 'self' https: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com",
 
+      // Frame sources - allow BirdEye charts
+      // FIXED: Added https://birdeye.so for embedded trading charts
+      "frame-src 'self' https://birdeye.so",
+
       // Frame ancestors - prevent clickjacking
       "frame-ancestors 'none'",
 

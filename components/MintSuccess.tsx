@@ -121,16 +121,18 @@ export function MintSuccess({
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - UPDATED */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        {/* NEW: Trade Now Button */}
         <a
-          href={explorerUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-6 rounded-lg transition-colors text-center"
+          href={`/pools/${mintAddress}`}
+          className="flex-1 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg shadow-primary-500/20 text-center flex items-center justify-center gap-2"
         >
-          View Token on Explorer
+          <span>🚀</span>
+          <span>Trade Now & View Chart</span>
         </a>
+
+        {/* Pool Explorer */}
         {launchType === LaunchType.METEORA && poolExplorerUrl && (
           <a
             href={poolExplorerUrl}
@@ -141,6 +143,8 @@ export function MintSuccess({
             View Pool on Explorer
           </a>
         )}
+
+        {/* Transaction Explorer */}
         <a
           href={signatureUrl}
           target="_blank"
