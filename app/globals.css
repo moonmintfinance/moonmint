@@ -93,6 +93,26 @@ body {
   animation: fadeIn 0.3s ease-out;
 }
 
+/* Animated Gradient Background for Token Cards */
+@keyframes gradient-xy {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-bg {
+  /* Vibrant gradient: Blue -> Purple -> Pink -> Blue */
+  background: linear-gradient(-45deg, #0ea5e9, #8b5cf6, #ec4899, #0ea5e9);
+  background-size: 400% 400%;
+  animation: gradient-xy 6s ease infinite;
+}
+
 /* Glassmorphism effect */
 .glass {
   background: rgba(39, 39, 42, 0.5);

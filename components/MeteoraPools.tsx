@@ -214,14 +214,14 @@ async function fetchMetadataJson(uri: string | undefined): Promise<{ image?: str
  *
  * Metadata structure:
  * {
- *   mint: PublicKey,
- *   updateAuthority: PublicKey,
- *   data: {
- *     name: string,
- *     symbol: string,
- *     uri: string,
- *     ...
- *   }
+ * mint: PublicKey,
+ * updateAuthority: PublicKey,
+ * data: {
+ * name: string,
+ * symbol: string,
+ * uri: string,
+ * ...
+ * }
  * }
  */
 async function fetchToken2022Metadata(
@@ -431,15 +431,15 @@ export function MeteoraPools() {
               href={`/pools/${pool.baseMint}`}
               className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 group flex flex-col"
             >
-              {/* Token Image */}
-              <div className="relative w-full aspect-video bg-dark-50 overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0">
+              {/* Token Image - ANIMATED GRADIENT BACKGROUND */}
+              <div className="relative w-full aspect-video animate-gradient-bg overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0">
                 {pool.imageUrl ? (
                   <div className="relative w-full h-full">
                     <Image
                       src={pool.imageUrl}
                       alt={pool.name || 'Token'}
                       fill
-                      className="object-contain group-hover:scale-105 transition-transform duration-300"
+                      className="object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-lg"
                       priority={false}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       onError={(e) => {
@@ -449,11 +449,11 @@ export function MeteoraPools() {
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-gray-500">
+                  <div className="flex flex-col items-center justify-center text-white/80">
                     <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-xs">No Image</span>
+                    <span className="text-xs font-semibold">No Image</span>
                   </div>
                 )}
               </div>
