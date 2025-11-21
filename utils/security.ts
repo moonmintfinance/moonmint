@@ -225,7 +225,7 @@ export function validateSolanaAddress(
 export function detectScamPatterns(metadata: {
   name: string;
   symbol: string;
-  description?: string;
+  // description removed
 }): string[] {
   const warnings: string[] = [];
 
@@ -246,7 +246,8 @@ export function detectScamPatterns(metadata: {
     'return',
   ];
 
-  const allText = `${metadata.name} ${metadata.symbol} ${metadata.description || ''}`.toLowerCase();
+  // Removed description from check
+  const allText = `${metadata.name} ${metadata.symbol}`.toLowerCase();
 
   for (const keyword of scamKeywords) {
     if (allText.includes(keyword)) {

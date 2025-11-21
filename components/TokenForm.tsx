@@ -114,7 +114,7 @@ export function TokenForm({
     symbol: '',
     decimals: 9,
     initialSupply: 1000000,
-    description: '',
+    // description removed
     imageUrl: '',
   });
 
@@ -191,9 +191,7 @@ export function TokenForm({
       ...formData,
       name: sanitizeInput(formData.name),
       symbol: sanitizeInput(formData.symbol).toUpperCase(),
-      description: formData.description
-        ? sanitizeInput(formData.description)
-        : undefined,
+      // description removed
       imageUrl: formData.imageUrl, // Keep manual URL if provided
     };
 
@@ -446,24 +444,7 @@ export function TokenForm({
         </div>
       )}
 
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="description">
-          Description <span className="text-gray-500">(Optional)</span>
-        </label>
-        <textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-          placeholder="Describe your token..."
-          className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"
-          rows={3}
-          maxLength={200}
-          disabled={isLoading || !isWalletConnected}
-        />
-      </div>
+      {/* Description Field Removed */}
 
       {/* Authorities (only for Direct launch) */}
       {launchType === LaunchType.DIRECT && (

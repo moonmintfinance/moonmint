@@ -5,7 +5,7 @@ export interface TokenMetadata {
   symbol: string;
   decimals: number;
   initialSupply: number;
-  description?: string;
+  // description removed
   imageUrl?: string;
 }
 
