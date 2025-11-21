@@ -1,14 +1,8 @@
 /**
- * Web3.Storage Upload Service (Client-Side Wrapper)
- * * This service now delegates the actual upload logic to the server-side API route
- * /api/upload to ensure the Delegation Proof (W3_PROOF) remains secure and
- * is never exposed to the browser.
+ * Pinata Upload Service
+ * Simplifies file uploads to IPFS via Pinata
  */
 
-/**
- * Uploads a file to IPFS via the server-side proxy
- * Returns the HTTP gateway URL (immutable)
- */
 export async function uploadImageToIPFS(file: File): Promise<string> {
   try {
     const formData = new FormData();
@@ -31,10 +25,10 @@ export async function uploadImageToIPFS(file: File): Promise<string> {
       throw new Error('Invalid response from upload server');
     }
 
-    console.log('✅ File uploaded via API:', data.url);
+    console.log('✅ File uploaded via Pinata:', data.url);
     return data.url;
   } catch (error) {
     console.error('❌ IPFS Upload Service Error:', error);
-    throw error; // Re-throw so the UI can handle the error state
+    throw error;
   }
 }

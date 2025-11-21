@@ -1,88 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { create } from '@web3-storage/w3up-client';
-import * as Delegation from '@web3-storage/w3up-client/delegation';
-import { StoreMemory } from '@web3-storage/w3up-client/stores/memory';
 
-export const runtime = 'nodejs'; // Ensure we run in Node.js environment for file handling
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  console.log('\n🚀 Pinata Upload Request Started');
+  const startTime = Date.now();
+
   try {
-    // 1. Validate Environment Configuration
-    // NOTE: We use W3_PROOF here, NOT NEXT_PUBLIC_W3_PROOF
-    const proof = process.env.W3_PROOF;
-    if (!proof) {
+    // Get JWT token from environment
+    const jwt = process.env.PINATA_JWT;
+
+    if (!jwt) {
+      console.error('❌ Missing PINATA_JWT');
       return NextResponse.json(
-        { error: 'Storage configuration missing on server' },
+        { error: 'Server not configured with Pinata JWT token' },
         { status: 500 }
       );
     }
 
-    // 2. Parse Form Data
+    console.log('✓ Pinata JWT found');
+
+    // Parse uploaded file
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
+      console.error('❌ No file provided');
       return NextResponse.json(
         { error: 'No file provided' },
         { status: 400 }
       );
     }
 
-    // 3. Initialize Web3.Storage Client
-    // We use StoreMemory to avoid trying to write config files in a serverless environment
-    const client = await create({ store: new StoreMemory() });
+    console.log(`✓ File received: ${file.name} (${file.size} bytes)`);
 
-    // 4. Apply Delegation Proof
-    try {
-      const binaryProof = parseProof(proof);
-      const delegation = await Delegation.extract(binaryProof);
+    // Prepare FormData for Pinata
+    const pinataFormData = new FormData();
+    pinataFormData.append('file', file);
 
-      if (!delegation.ok) {
-        throw new Error('Failed to extract delegation', { cause: delegation.error });
-      }
+    const metadata = {
+      name: file.name,
+      keyvalues: {
+        uploadedAt: new Date().toISOString(),
+        service: 'moon-mint',
+      },
+    };
+    pinataFormData.append('pinataMetadata', JSON.stringify(metadata));
 
-      // FIX: Cast to 'any' to bypass TypeScript strict DID branding mismatch.
-      // The runtime value is correct, but TS expects a specific branded string type.
-      await client.addProof(delegation.ok as any);
-      await client.setCurrentSpace(delegation.ok.capabilities[0].with as any);
-    } catch (e) {
-      console.error('Proof validation failed:', e);
+    // Upload to Pinata using JWT authentication
+    console.log('📤 Uploading to Pinata...');
+    const pinataResponse = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${jwt}`,
+      },
+      body: pinataFormData,
+    });
+
+    if (!pinataResponse.ok) {
+      const errorText = await pinataResponse.text();
+      console.error('❌ Pinata API error:', pinataResponse.status, errorText);
       return NextResponse.json(
-        { error: 'Invalid storage credentials' },
+        { error: `Pinata upload failed: ${pinataResponse.status}` },
         { status: 500 }
       );
     }
 
-    // 5. Upload File
-    // The client expects an array of files
-    const directoryCid = await client.uploadDirectory([file]);
+    const pinataData = await pinataResponse.json();
 
-    // 6. Generate URL
-    const url = `https://${directoryCid.toString()}.ipfs.w3s.link/${encodeURIComponent(file.name)}`;
+    if (!pinataData.IpfsHash) {
+      console.error('❌ No IPFS hash in Pinata response');
+      return NextResponse.json(
+        { error: 'Invalid response from Pinata' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✓ Upload successful! IPFS Hash: ${pinataData.IpfsHash}`);
+
+    const url = `https://gateway.pinata.cloud/ipfs/${pinataData.IpfsHash}`;
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ Upload completed in ${duration}ms`);
+    console.log(`📍 URL: ${url}\n`);
 
     return NextResponse.json({ url });
 
   } catch (error) {
-    console.error('Upload handler error:', error);
+    console.error('❌ Upload failed:', error);
     return NextResponse.json(
-      { error: 'Internal upload failed' },
+      { error: 'Upload failed', details: String(error) },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Helper: Decode base64 proof to Uint8Array
- */
-function parseProof(data: string) {
-  try {
-    const binaryString = atob(data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  } catch (e) {
-    throw new Error('Invalid proof format. Ensure it is base64 encoded.');
   }
 }
