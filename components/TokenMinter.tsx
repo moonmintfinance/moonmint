@@ -13,6 +13,7 @@ import { getReferralWallet } from '@/utils/referral';
 import { TokenForm, LaunchType } from './TokenForm';
 import { MintSuccess } from './MintSuccess';
 import { TransactionConfirmation } from './TransactionConfirmation';
+import { uploadImageToIPFS } from '@/services/web3Storage';
 import { SERVICE_FEE_WALLET, METEORA_CONFIG } from '@/lib/constants';
 
 export function TokenMinter() {
@@ -33,6 +34,7 @@ export function TokenMinter() {
     totalFee: number;
     launchType: LaunchType;
     meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number };
+    imageFile?: File | null;
   } | null>(null);
 
   /**
@@ -68,7 +70,8 @@ export function TokenMinter() {
     metadata: TokenMetadata,
     config: MintConfig,
     selectedLaunchType: LaunchType,
-    meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number }
+    meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number },
+    imageFile?: File | null // ✅ NEW: Receive File object
   ) => {
     if (!connected || !publicKey) {
       toast.error('Please connect your wallet first');
@@ -92,8 +95,7 @@ export function TokenMinter() {
         return;
       }
 
-      // Calculate Meteora fees
-      const meteoraBaseFee = 0.00; // Approximate Meteora creation fee
+      const meteoraBaseFee = 0.00;
       const firstBuyAmount = meteoraConfig?.enableFirstBuy ? meteoraConfig.initialBuyAmount : 0;
       const totalFee = (meteoraBaseFee + firstBuyAmount) * LAMPORTS_PER_SOL;
 
@@ -103,9 +105,9 @@ export function TokenMinter() {
         totalFee,
         launchType: LaunchType.METEORA,
         meteoraConfig,
+        imageFile, // ✅ Store for later
       });
     } else {
-      // Direct Token 2022 launch
       const directService = new AtomicToken2022MintService(connection);
       const totalFee = directService.calculateTotalServiceFee(config);
 
@@ -114,6 +116,7 @@ export function TokenMinter() {
         config,
         totalFee,
         launchType: LaunchType.DIRECT,
+        imageFile, // ✅ Store for later
       });
     }
   };
@@ -124,7 +127,7 @@ export function TokenMinter() {
       return;
     }
 
-    const { metadata, config, launchType, meteoraConfig } = pendingMint;
+    const { metadata, config, launchType, meteoraConfig, imageFile } = pendingMint;
 
     // Prevent double-submit
     if (!submitGuard.markProcessing('mint-token')) {
@@ -143,6 +146,26 @@ export function TokenMinter() {
     );
 
     try {
+      // ✅ NEW: Upload image AFTER confirmation but BEFORE sending transaction
+      let finalImageUrl = metadata.imageUrl;
+
+      if (imageFile) {
+        console.log('📤 Uploading image to IPFS...');
+        const uploadingToast = toast.loading('Uploading image to IPFS...');
+        try {
+          finalImageUrl = await uploadImageToIPFS(imageFile);
+          console.log('✅ Image uploaded:', finalImageUrl);
+          toast.success('Image uploaded!', { id: uploadingToast });
+        } catch (uploadError) {
+          console.error('⚠️ Image upload failed:', uploadError);
+          toast.error('Image upload failed, proceeding without image', { id: uploadingToast });
+          // Continue without image - don't fail the whole transaction
+        }
+      }
+
+      // Update metadata with final image URL
+      const metadataWithImage = { ...metadata, imageUrl: finalImageUrl };
+
       if (launchType === LaunchType.METEORA) {
         console.log('🚀 Starting Meteora bonding curve launch...');
 
@@ -157,7 +180,7 @@ export function TokenMinter() {
         } as any);
 
         const result = await meteoraService.launchToken({
-          metadata,
+          metadata: metadataWithImage,
           config,
           initialBuyAmountSol: meteoraConfig?.enableFirstBuy
             ? meteoraConfig.initialBuyAmount
@@ -221,7 +244,7 @@ export function TokenMinter() {
         const transaction = await mintService.buildMintTransaction(
           publicKey,
           mintKeypair,
-          metadata,
+          metadataWithImage,
           config
         );
 
