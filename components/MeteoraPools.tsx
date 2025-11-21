@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
+import { TOKEN_2022_PROGRAM_ID, getMint, getMetadataPointerState, getTokenMetadata } from '@solana/spl-token';
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { SOLANA_RPC_ENDPOINT, METEORA_CONFIG } from '@/lib/constants';
 
@@ -12,6 +13,58 @@ interface PoolInfo {
   name?: string;
   symbol?: string;
   progress: number;
+}
+
+/**
+ * Fetches Token 2022 metadata directly from the blockchain
+ * Uses the MetadataPointer extension to retrieve on-chain metadata
+ *
+ * ✅ KEY IMPROVEMENTS:
+ * - Fetches metadata directly from Token 2022 using MetadataPointer extension
+ * - Handles both name and symbol properly
+ * - Gracefully handles missing metadata
+ */
+async function fetchToken2022Metadata(
+  connection: Connection,
+  mintAddress: PublicKey
+): Promise<{ name?: string; symbol?: string }> {
+  try {
+    // 1. Get the mint account to check for MetadataPointer extension
+    const mintAccount = await getMint(
+      connection,
+      mintAddress,
+      'confirmed',
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    // 2. Get the metadata pointer state (tells us where metadata is stored)
+    const metadataPointer = getMetadataPointerState(mintAccount);
+
+    if (!metadataPointer?.metadataAddress) {
+      console.debug('⚠️  No metadata pointer found for mint:', mintAddress.toBase58());
+      return {};
+    }
+
+    // 3. Fetch the actual Token 2022 metadata
+    const metadata = await getTokenMetadata(
+      connection,
+      metadataPointer.metadataAddress,
+      'confirmed',
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    if (!metadata) {
+      return {};
+    }
+
+    return {
+      name: metadata.name,
+      symbol: metadata.symbol,
+    };
+  } catch (error) {
+    console.debug('❌ Error fetching Token 2022 metadata for', mintAddress.toBase58(), error);
+    return {};
+  }
 }
 
 export function MeteoraPools() {
@@ -46,7 +99,7 @@ export function MeteoraPools() {
 
         console.log('✅ Got pools from SDK. Count:', allPools.length);
 
-        // Get metadata for each pool
+        // Get Token 2022 metadata for each pool's base mint
         const poolsWithInfo = await Promise.all(
           allPools.map(async (poolItem) => {
             try {
@@ -68,31 +121,28 @@ export function MeteoraPools() {
               // Get pool progress using the correct PublicKey
               const progress = await client.state.getPoolCurveProgress(poolPubKey);
 
-              // Try to get metadata
-              let metadata = null;
-              try {
-                const metadataList = await client.state.getPoolMetadata(poolPubKey);
-                metadata = metadataList[0];
-              } catch (metadataErr) {
-                // Metadata not available - this is not a fatal error
-                console.debug('Metadata not available for pool:', poolPubKey.toBase58());
-              }
-
-              // Generate symbol from name (metadata doesn't have symbol field)
-              const symbol = metadata?.name
-                ? metadata.name.slice(0, 4).toUpperCase()
-                : '???';
-
-              // Extract baseMint and creator (already in pool.account)
+              // Extract baseMint from pool
               const baseMint = pool.baseMint;
+              const baseMintPubKey = typeof baseMint === 'string'
+                ? new PublicKey(baseMint)
+                : baseMint;
+
+              // ✅ FETCH TOKEN 2022 METADATA DIRECTLY
+              // This replaces the old Meteora metadata fetching
+              const token2022Metadata = await fetchToken2022Metadata(connection, baseMintPubKey);
+
+              const name = token2022Metadata.name || 'Unknown Token';
+              const symbol = token2022Metadata.symbol || '???';
+
+              // Extract creator
               const creator = pool.creator;
 
               return {
                 address: poolPubKey.toBase58?.() || String(poolAddress),
                 baseMint: typeof baseMint === 'string' ? baseMint : baseMint?.toBase58?.() || String(baseMint),
                 creator: typeof creator === 'string' ? creator : creator?.toBase58?.() || String(creator),
-                name: metadata?.name || 'Unknown Token',
-                symbol: symbol,
+                name,
+                symbol,
                 progress: Math.round(progress * 100),
               };
             } catch (err) {
@@ -102,11 +152,11 @@ export function MeteoraPools() {
           })
         );
 
-        // Filter out failed fetches and sort by newest first
+        // Filter out failed fetches
         const validPools = poolsWithInfo
           .filter((p) => p !== null) as PoolInfo[];
 
-        console.log('✅ Valid pools:', validPools.length);
+        console.log('✅ Valid pools with metadata:', validPools.length);
         setPools(validPools);
       } catch (err) {
         console.error('Error fetching pools:', err);
