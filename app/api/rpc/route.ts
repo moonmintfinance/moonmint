@@ -1,30 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 /**
  * RPC Proxy Route
- * Location: app/api/rpc/route.ts
- *
- * Forwards JSON-RPC requests to Helius on the server side.
- * This prevents exposing your API key to the browser.
+ * Forwards Solana RPC requests to Helius or public RPC endpoint
+ * Used for secure client-side RPC calls
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Get the RPC endpoint from environment
+    let rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
 
-    // Validate that HELIUS_API_KEY is set
-    if (!process.env.HELIUS_API_KEY) {
-      console.error('❌ HELIUS_API_KEY not set in environment variables');
-      return NextResponse.json(
-        { error: 'RPC service not configured' },
-        { status: 500 }
-      );
+    if (!rpcEndpoint) {
+      // Fallback to Helius if available
+      if (process.env.HELIUS_API_KEY) {
+        rpcEndpoint = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+      } else {
+        // Final fallback to public Solana RPC
+        const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet-beta';
+        const publicRpcMap: Record<string, string> = {
+          'mainnet-beta': 'https://api.mainnet-beta.solana.com',
+          'testnet': 'https://api.testnet.solana.com',
+          'devnet': 'https://api.devnet.solana.com',
+        };
+        rpcEndpoint = publicRpcMap[network];
+      }
     }
 
-    // Construct Helius endpoint with your private API key
-    const heliusUrl = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+    // Parse the incoming RPC request
+    const body = await request.json();
 
-    // Forward the RPC request to Helius
-    const response = await fetch(heliusUrl, {
+    console.log(`📡 [RPC Proxy] Method: ${body.method}`);
+
+    // Forward request to the actual RPC endpoint
+    const response = await fetch(rpcEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -32,22 +42,23 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    // Handle non-OK responses from Helius
     if (!response.ok) {
-      console.error(`❌ Helius RPC error: ${response.status}`);
+      console.error(`❌ [RPC Proxy] Error: ${response.status}`);
       return NextResponse.json(
-        { error: 'RPC request failed from upstream' },
+        { error: `RPC error: ${response.status}` },
         { status: response.status }
       );
     }
 
     const data = await response.json();
+
+    // Return the RPC response
     return NextResponse.json(data);
+
   } catch (error) {
-    console.error('❌ RPC proxy error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ [RPC Proxy] Error:', error);
     return NextResponse.json(
-      { error: `RPC request failed: ${errorMessage}` },
+      { error: 'RPC proxy error', details: String(error) },
       { status: 500 }
     );
   }

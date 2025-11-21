@@ -3,11 +3,13 @@
 import { TokenMetadata, MintConfig } from '@/types/token';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getReferralWallet } from '@/utils/referral';
+import { LaunchType } from './TokenForm';
 
 interface TransactionConfirmationProps {
   metadata: TokenMetadata;
   config: MintConfig;
   totalFee: number;
+  launchType: LaunchType;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,6 +18,7 @@ export function TransactionConfirmation({
   metadata,
   config,
   totalFee,
+  launchType,
   onConfirm,
   onCancel,
 }: TransactionConfirmationProps) {
@@ -23,6 +26,8 @@ export function TransactionConfirmation({
   const referralWallet = getReferralWallet();
   const referralEarnings = referralWallet ? Math.floor(totalFee * 0.55) : 0;
   const referralEarningsSol = (referralEarnings / LAMPORTS_PER_SOL).toFixed(4);
+
+  const isMeteora = launchType === LaunchType.METEORA;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -47,7 +52,9 @@ export function TransactionConfirmation({
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Confirm Transaction</h3>
-              <p className="text-sm text-gray-400">Review before signing</p>
+              <p className="text-sm text-gray-400">
+                {isMeteora ? 'Review bonding curve launch details' : 'Review before signing'}
+              </p>
             </div>
           </div>
         </div>
@@ -63,8 +70,9 @@ export function TransactionConfirmation({
                   Security Check
                 </div>
                 <div className="text-xs text-yellow-300 mt-1">
-                  You are about to sign a transaction that will create a new token on
-                  Solana. Review all details carefully before confirming.
+                  {isMeteora
+                    ? 'You are about to launch a token on Moon Mints\'s bonding curve. This creates a dynamic pricing mechanism and allocates your token to the curve.'
+                    : 'You are about to sign a transaction that will create a new token on Solana. Review all details carefully before confirming.'}
                 </div>
               </div>
             </div>
@@ -106,45 +114,70 @@ export function TransactionConfirmation({
             </div>
           </div>
 
-          {/* Authorities */}
-          <div className="space-y-4">
-            <div className="text-sm font-semibold text-primary-400">
-              Token Authorities
-            </div>
+          {/* Authorities - Only for Direct launches */}
+          {!isMeteora && (
+            <div className="space-y-4">
+              <div className="text-sm font-semibold text-primary-400">
+                Token Authorities
+              </div>
 
-            <div className="bg-dark-50 rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400 text-sm">Mint Authority:</span>
-                <span
-                  className={`font-medium ${
-                    config.mintAuthority ? 'text-green-400' : 'text-yellow-400'
-                  }`}
-                >
-                  {config.mintAuthority ? 'Revoked ✓' : 'Retained'}
-                </span>
+              <div className="bg-dark-50 rounded-lg p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">Mint Authority:</span>
+                  <span
+                    className={`font-medium ${
+                      config.mintAuthority ? 'text-green-400' : 'text-yellow-400'
+                    }`}
+                  >
+                    {config.mintAuthority ? 'Revoked ✓' : 'Retained'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">Freeze Authority:</span>
+                  <span
+                    className={`font-medium ${
+                      config.freezeAuthority ? 'text-green-400' : 'text-yellow-400'
+                    }`}
+                  >
+                    {config.freezeAuthority ? 'Revoked ✓' : 'Retained'}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400 text-sm">Freeze Authority:</span>
-                <span
-                  className={`font-medium ${
-                    config.freezeAuthority ? 'text-green-400' : 'text-yellow-400'
-                  }`}
-                >
-                  {config.freezeAuthority ? 'Revoked ✓' : 'Retained'}
-                </span>
+
+              {(!config.mintAuthority || !config.freezeAuthority) && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                  <p className="text-xs text-yellow-300">
+                    ⚠️ You are retaining some authorities. This means you can mint more
+                    tokens or freeze accounts. Most projects revoke these for
+                    transparency.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Meteora-specific info */}
+          {isMeteora && (
+            <div className="space-y-4">
+              <div className="text-sm font-semibold text-primary-400">
+                Bonding Curve Details
+              </div>
+
+              <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-4 space-y-3">
+                <div className="text-xs text-gray-300">
+                  <p className="mb-2">
+                    Your token will be deployed with a dynamic bonding curve that automatically manages pricing based on supply and demand.
+                  </p>
+                  <ul className="space-y-1 list-disc list-inside text-gray-400">
+                    <li>Price increases as tokens are purchased from the curve</li>
+                    <li>Automatic liquidity provisioning</li>
+                    <li>No manual liquidity management needed</li>
+                    <li>Automatic migration to DEX when threshold reached</li>
+                  </ul>
+                </div>
               </div>
             </div>
-
-            {(!config.mintAuthority || !config.freezeAuthority) && (
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                <p className="text-xs text-yellow-300">
-                  ⚠️ You are retaining some authorities. This means you can mint more
-                  tokens or freeze accounts. Most projects revoke these for
-                  transparency.
-                </p>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Cost Breakdown */}
           <div className="space-y-4">
@@ -154,7 +187,9 @@ export function TransactionConfirmation({
 
             <div className="bg-dark-50 rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-400">Total Service Fee:</span>
+                <span className="text-gray-400">
+                  {isMeteora ? 'Total Launch Fee:' : 'Total Service Fee:'}
+                </span>
                 <span className="text-2xl font-bold text-primary-300">
                   {totalFeeSol} SOL
                 </span>
@@ -187,7 +222,7 @@ export function TransactionConfirmation({
             onClick={onConfirm}
             className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 rounded-lg transition-colors"
           >
-            Sign & Create
+            {isMeteora ? 'Launch on Moon Mint bonding curve' : 'Sign & Create'}
           </button>
         </div>
       </div>
