@@ -432,14 +432,14 @@ export function MeteoraPools() {
               className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 group flex flex-col"
             >
               {/* Token Image */}
-              <div className="relative w-full h-40 bg-dark-50 overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0">
+              <div className="relative w-full aspect-video bg-dark-50 overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0">
                 {pool.imageUrl ? (
                   <div className="relative w-full h-full">
                     <Image
                       src={pool.imageUrl}
                       alt={pool.name || 'Token'}
                       fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-300"
+                      className="object-contain group-hover:scale-105 transition-transform duration-300"
                       priority={false}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       onError={(e) => {
