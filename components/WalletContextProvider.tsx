@@ -1,11 +1,9 @@
 'use client';
 
-import React, { FC, ReactNode, useMemo, useEffect, useRef, useState } from 'react';
+import React, { FC, ReactNode, useMemo } from 'react';
 import {
   ConnectionProvider,
   WalletProvider,
-  useConnection,
-  useWallet,
 } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
@@ -20,81 +18,6 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 interface WalletContextProviderProps {
   children: ReactNode;
 }
-
-const AUTO_CONNECT_TIMEOUT_MS = 5000; // 5 second timeout for autoConnect
-
-/**
- * Inner component that monitors auto-connect status
- * Uses wallet hooks to detect connection success/failure
- */
-const AutoConnectMonitor: FC<{ children: ReactNode }> = ({ children }) => {
-  const { connected, connecting } = useWallet();
-  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false);
-  const [isAutoConnectStuck, setIsAutoConnectStuck] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Monitor auto-connect timeout
-  useEffect(() => {
-    // First time component mounts, wallet will attempt auto-connect
-    if (!autoConnectAttempted) {
-      setAutoConnectAttempted(true);
-
-      // Set timeout for auto-connect attempt
-      timeoutRef.current = setTimeout(() => {
-        // If still connecting after timeout, show warning
-        if (connecting) {
-          console.warn('⚠️  Auto-connect timeout - wallet connection took too long');
-          setIsAutoConnectStuck(true);
-        }
-      }, AUTO_CONNECT_TIMEOUT_MS);
-
-      return () => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-      };
-    }
-  }, [autoConnectAttempted, connecting]);
-
-  // Clear timeout if connection succeeds or fails
-  useEffect(() => {
-    if ((connected || !connecting) && timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      // Auto-connect attempt completed (either success or it gave up)
-      setIsAutoConnectStuck(false);
-    }
-  }, [connected, connecting]);
-
-  return (
-    <>
-      {children}
-      {isAutoConnectStuck && !connected && (
-        <div className="fixed top-4 right-4 z-50 max-w-sm animate-fadeIn">
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 backdrop-blur-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-yellow-500 text-lg">⚠️</div>
-              <div className="flex-1">
-                <div className="font-semibold text-yellow-400 text-sm">
-                  Wallet Connection Timeout
-                </div>
-                <p className="text-xs text-yellow-300 mt-1 mb-3">
-                  Auto-connect is taking too long. Click the wallet button to connect manually.
-                </p>
-                <button
-                  onClick={() => setIsAutoConnectStuck(false)}
-                  className="text-xs bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 px-3 py-1 rounded transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
 
 export const WalletContextProvider: FC<WalletContextProviderProps> = ({
   children,
@@ -188,11 +111,7 @@ export const WalletContextProvider: FC<WalletContextProviderProps> = ({
           }
         }}
       >
-        <WalletModalProvider>
-          <AutoConnectMonitor>
-            {children}
-          </AutoConnectMonitor>
-        </WalletModalProvider>
+        <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
