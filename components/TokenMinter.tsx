@@ -18,7 +18,7 @@ import { SERVICE_FEE_WALLET, METEORA_CONFIG } from '@/lib/constants';
 
 export function TokenMinter() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction, signTransaction, signAllTransactions, connected } = useWallet();
+  const { publicKey, sendTransaction, signTransaction, signAllTransactions, signMessage, connected } = useWallet();
 
   const [isLoading, setIsLoading] = useState(false);
   const [mintResult, setMintResult] = useState<{
@@ -71,7 +71,7 @@ export function TokenMinter() {
     config: MintConfig,
     selectedLaunchType: LaunchType,
     meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number },
-    imageFile?: File | null // ✅ NEW: Receive File object
+    imageFile?: File | null
   ) => {
     if (!connected || !publicKey) {
       toast.error('Please connect your wallet first');
@@ -105,7 +105,7 @@ export function TokenMinter() {
         totalFee,
         launchType: LaunchType.METEORA,
         meteoraConfig,
-        imageFile, // ✅ Store for later
+        imageFile,
       });
     } else {
       const directService = new AtomicToken2022MintService(connection);
@@ -116,7 +116,7 @@ export function TokenMinter() {
         config,
         totalFee,
         launchType: LaunchType.DIRECT,
-        imageFile, // ✅ Store for later
+        imageFile,
       });
     }
   };
@@ -146,20 +146,38 @@ export function TokenMinter() {
     );
 
     try {
-      // ✅ NEW: Upload image AFTER confirmation but BEFORE sending transaction
+      // ✅ SECURE: Upload image with wallet signature authentication
       let finalImageUrl = metadata.imageUrl;
 
       if (imageFile) {
-        console.log('📤 Uploading image to IPFS...');
-        const uploadingToast = toast.loading('Uploading image to IPFS...');
-        try {
-          finalImageUrl = await uploadImageToIPFS(imageFile);
-          console.log('✅ Image uploaded:', finalImageUrl);
-          toast.success('Image uploaded!', { id: uploadingToast });
-        } catch (uploadError) {
-          console.error('⚠️ Image upload failed:', uploadError);
-          toast.error('Image upload failed, proceeding without image', { id: uploadingToast });
-          // Continue without image - don't fail the whole transaction
+        if (!signMessage) {
+          console.warn('⚠️ Wallet does not support message signing. Proceeding without image.');
+          toast.error('Your wallet does not support message signing. Proceeding without image.', {
+            duration: 4000,
+          });
+        } else {
+          console.log('📤 Uploading image with wallet authentication...');
+          const uploadingToast = toast.loading('Signing authentication & uploading image...');
+
+          try {
+            // Upload with wallet signature
+            finalImageUrl = await uploadImageToIPFS(
+              imageFile,
+              signMessage,
+              publicKey.toBase58()
+            );
+
+            console.log('✅ Image uploaded securely:', finalImageUrl);
+            toast.success('Image uploaded!', { id: uploadingToast });
+          } catch (uploadError) {
+            console.error('⚠️ Image upload failed:', uploadError);
+            const errorMsg = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+            toast.error(`Image upload failed: ${errorMsg}. Proceeding without image.`, {
+              id: uploadingToast,
+              duration: 5000,
+            });
+            // Continue without image - don't fail the whole transaction
+          }
         }
       }
 
