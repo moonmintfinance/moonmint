@@ -186,7 +186,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid Pinata response' }, { status: 500 });
     }
 
-    const url = `https://gateway.pinata.cloud/ipfs/${pinataData.IpfsHash}`;
+    // ✅ Use dedicated gateway for the returned URL
+    // Falls back to public gateway if env var is missing, but prioritized the dedicated one
+    const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+    const url = `${gateway}/ipfs/${pinataData.IpfsHash}`;
+
     console.log(`✅ Upload successful: ${url}\n`);
 
     return NextResponse.json({ url });

@@ -17,8 +17,13 @@ interface PoolInfo {
   imageUrl?: string;
 }
 
+// Dedicated Gateway from Environment
+const DEDICATED_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
+
 // IPFS Gateway priorities (fallback list)
 const IPFS_GATEWAYS = [
+  // ✅ Prioritize dedicated gateway if available
+  ...(DEDICATED_GATEWAY ? [`${DEDICATED_GATEWAY}/ipfs`] : []),
   'https://gateway.pinata.cloud/ipfs',
   'https://ipfs.io/ipfs',
   'https://gateway.ipfs.io/ipfs',
@@ -33,8 +38,12 @@ const IPFS_GATEWAYS = [
 function convertIpfsToHttp(uri: string): string {
   if (!uri) return '';
 
-  // If it's already an HTTP URL, return as-is
+  // If it's already an HTTP URL
   if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    // Optimization: If it's using the public pinata gateway, switch to dedicated
+    if (DEDICATED_GATEWAY && uri.includes('gateway.pinata.cloud')) {
+      return uri.replace('https://gateway.pinata.cloud', DEDICATED_GATEWAY);
+    }
     return uri;
   }
 
@@ -46,7 +55,7 @@ function convertIpfsToHttp(uri: string): string {
     hash = uri.replace('/ipfs/', '');
   }
 
-  // Return with first gateway (will fall back to others if needed)
+  // Return with first gateway (which is now your dedicated one)
   return `${IPFS_GATEWAYS[0]}/${hash}`;
 }
 
