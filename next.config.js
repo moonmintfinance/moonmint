@@ -46,11 +46,11 @@ const nextConfig = {
       // Font sources - allow Google Fonts and data URIs
       "font-src 'self' data: https://fonts.gstatic.com",
 
-      // Connect sources - Solana RPC endpoints + Jupiter + DexScreener + Pinata API
-      "connect-src 'self' https: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com https://dexscreener.com https://api.pinata.cloud https://gateway.pinata.cloud",
+      // Connect sources - Added birdeye.so
+      "connect-src 'self' https: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com https://dexscreener.com https://api.pinata.cloud https://gateway.pinata.cloud https://birdeye.so",
 
-      // Frame sources - allow DexScreener charts
-      "frame-src 'self' https://dexscreener.com",
+      // Frame sources - Added birdeye.so
+      "frame-src 'self' https://dexscreener.com https://birdeye.so",
 
       // Frame ancestors - prevent clickjacking
       "frame-ancestors 'none'",

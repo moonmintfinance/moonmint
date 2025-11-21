@@ -13,8 +13,8 @@ export function PoolContent({ mint }: PoolContentProps) {
     process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
   }`;
 
-  // DexScreener embed URL with proper parameters for chart view
-  const dexscreenerEmbedUrl = `https://dexscreener.com/solana/${mint}?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15`;
+  // BirdEye embed URL with parameters from your snippet
+  const birdEyeEmbedUrl = `https://birdeye.so/tv-widget/${mint}?chain=solana&viewMode=pair&chartInterval=1D&chartType=CANDLE&chartTimezone=Asia%2FSingapore&chartLeftToolbar=show&theme=dark`;
 
   // Jupiter form props to default to SOL -> Token swap
   const jupiterFormProps: Partial<FormProps> = {
@@ -45,20 +45,20 @@ export function PoolContent({ mint }: PoolContentProps) {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* DexScreener Chart - Takes 2 columns on desktop */}
+        {/* Chart - Takes 2 columns on desktop */}
         <div className="lg:col-span-2">
           <style>{`
-            #dexscreener-embed {
+            #chart-embed {
               position: relative;
               width: 100%;
               padding-bottom: 125%;
             }
             @media (min-width: 1400px) {
-              #dexscreener-embed {
+              #chart-embed {
                 padding-bottom: 75%;
               }
             }
-            #dexscreener-embed iframe {
+            #chart-embed iframe {
               position: absolute;
               width: 100%;
               height: 100%;
@@ -69,12 +69,12 @@ export function PoolContent({ mint }: PoolContentProps) {
             }
           `}</style>
           <div
-            id="dexscreener-embed"
+            id="chart-embed"
             className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl overflow-hidden"
           >
             <iframe
-              src={dexscreenerEmbedUrl}
-              title="DexScreener Token Chart"
+              src={birdEyeEmbedUrl}
+              title="BirdEye Token Chart"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
