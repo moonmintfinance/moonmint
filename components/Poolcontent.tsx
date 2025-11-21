@@ -29,7 +29,7 @@ export function PoolContent({ mint }: PoolContentProps) {
       <div className="mb-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-bold text-white mb-2">Token Trading</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">Token Trading (chart populates after the first trade)</h1>
             <p className="text-gray-400 text-sm font-mono break-all">{mint}</p>
           </div>
           <a
