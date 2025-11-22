@@ -47,30 +47,41 @@ const MAX_FALLBACK_ATTEMPTS = 2;
 
 /**
  * Converts IPFS URI to HTTP gateway URL
- * Handles both ipfs:// and direct hash formats
+ * Handles ipfs://, /ipfs/, and direct HTTP URLs (including custom Pinata gateways)
+ *
+ * ✅ FIXED: Now extracts IPFS hash from ANY format for consistent gateway handling
+ * This enables proper fallback to alternative gateways when custom Pinata gateways fail
  */
 function convertIpfsToHttp(uri: string): string {
   if (!uri) return '';
 
-  // If it's already an HTTP URL
-  if (uri.startsWith('http://') || uri.startsWith('https://')) {
-    // Optimization: If it's using the public pinata gateway, switch to dedicated
-    if (DEDICATED_GATEWAY && uri.includes('gateway.pinata.cloud')) {
-      return uri.replace('https://gateway.pinata.cloud', DEDICATED_GATEWAY);
-    }
-    return uri;
-  }
+  let hash = '';
 
-  // Extract IPFS hash
-  let hash = uri;
+  // Try to extract IPFS hash from various formats
   if (uri.startsWith('ipfs://')) {
     hash = uri.replace('ipfs://', '');
   } else if (uri.startsWith('/ipfs/')) {
     hash = uri.replace('/ipfs/', '');
+  } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    // ✅ NEW: Extract hash from HTTP URLs (including Pinata gateway URLs)
+    // Matches: https://gateway.pinata.cloud/ipfs/{hash}
+    //          https://custom-subdomain.mypinata.cloud/ipfs/{hash}
+    //          https://ipfs.io/ipfs/{hash}
+    const match = uri.match(/\/ipfs\/([a-zA-Z0-9]+)/);
+    if (match) {
+      hash = match[1];
+    } else {
+      // No IPFS hash found in URL, return as-is (might be direct image URL)
+      return uri;
+    }
+  } else {
+    // Unknown format, assume it's a raw hash
+    hash = uri;
   }
 
-  // Return with first gateway (which is now your dedicated one)
-  return `${IPFS_GATEWAYS[0]}/${hash}`;
+  // ✅ Use configured gateway (dedicated if available, otherwise first fallback)
+  const gateway = IPFS_GATEWAYS[0];
+  return `${gateway}/${hash}`;
 }
 
 /**
@@ -201,9 +212,22 @@ async function fetchMetadataJson(
           `⏫ Trying alternative gateways (max ${MAX_FALLBACK_ATTEMPTS})...`
         );
 
-        // ✅ TRY ALTERNATIVE GATEWAYS (LIMITED TO 2 ATTEMPTS)
-        if (uri.startsWith('ipfs://') || uri.startsWith('/ipfs/')) {
-          const hash = uri.replace('ipfs://', '').replace('/ipfs/', '');
+        // ✅ FIXED: Extract hash from ANY URI format (including HTTP URLs with /ipfs/)
+        let hash = '';
+        if (uri.startsWith('ipfs://')) {
+          hash = uri.replace('ipfs://', '');
+        } else if (uri.startsWith('/ipfs/')) {
+          hash = uri.replace('/ipfs/', '');
+        } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
+          // Extract from HTTP URLs like: https://indigo-historic-lark-315.mypinata.cloud/ipfs/{hash}
+          const match = uri.match(/\/ipfs\/([a-zA-Z0-9]+)/);
+          if (match) {
+            hash = match[1];
+          }
+        }
+
+        // ✅ TRY ALTERNATIVE GATEWAYS (if we extracted a hash)
+        if (hash) {
           console.log(`🔍 Extracted IPFS hash: ${hash}`);
 
           // ✅ ONLY TRY 2 FALLBACK GATEWAYS (INSTEAD OF ALL 6)
