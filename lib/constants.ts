@@ -7,7 +7,7 @@ export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet
 export const SOLANA_RPC_ENDPOINT =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
   (typeof window !== 'undefined'
-    ? '/api/rpc' // Client-side: use local RPC proxy
+    ? `${window.location.origin}/api/rpc` // [!code ++] ADDED window.location.origin
     : `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}` // Server-side: direct Helius
   );
 
