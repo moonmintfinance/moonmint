@@ -279,8 +279,11 @@ async function fetchMetadataJson(
         }
       }
 
-      // Return empty if all attempts failed
-      return {};
+      // ✅ CACHE THE NEGATIVE RESULT (no image found)
+      const emptyResult = {};
+      setCachedMetadataJson(uri, emptyResult);
+      console.log(`📋 [No Image] Cached empty result for ${uri.substring(0, 20)}...`);
+      return emptyResult;
     })();
 
     // ✅ REGISTER PENDING REQUEST (DEDUPLICATION)
@@ -354,7 +357,9 @@ async function fetchToken2022Metadata(
           '⚠️  No metadata pointer found for mint:',
           mintAddress.toBase58()
         );
-        return {};
+        const emptyResult = {};
+        setCachedToken2022Metadata(mintAddressStr, emptyResult);
+        return emptyResult;
       }
 
       // 3. Fetch the actual Token 2022 metadata
@@ -366,7 +371,9 @@ async function fetchToken2022Metadata(
       );
 
       if (!metadata) {
-        return {};
+        const emptyResult = {};
+        setCachedToken2022Metadata(mintAddressStr, emptyResult);
+        return emptyResult;
       }
 
       console.debug('📋 Raw metadata:', metadata);
