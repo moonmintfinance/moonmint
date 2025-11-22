@@ -41,7 +41,7 @@ const DEDICATED_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
 
 // IPFS Gateways - Ordered by reliability/speed
 const IPFS_GATEWAYS = [
-  '/api/ipfs',  // ← Use server proxy with JWT auth
+  '/api/ipfs',  // ← Use server proxy with Gateway Key
   'https://gateway.pinata.cloud/ipfs',
   'https://ipfs.io/ipfs',
   'https://cloudflare-ipfs.com/ipfs',
@@ -84,7 +84,54 @@ function convertIpfsToHttp(uri: string, gatewayIndex = 0): string {
 }
 
 /**
+ * Fetches the actual image URL from Token 2022 metadata
+ * Handles both direct image URLs and metadata JSON URIs
+ * ✅ FIXED: Properly extracts image from metadata JSON instead of returning JSON URI
+ */
+async function extractImageUrl(metadata: any): Promise<string | undefined> {
+  try {
+    // ✅ Option 1: Direct image URL from DAS API
+    if (metadata.content?.links?.image) {
+      console.log('📸 Found direct image URL in DAS');
+      return convertIpfsToHttp(metadata.content.links.image);
+    }
+
+    // ✅ Option 2: Fetch metadata JSON and extract image field
+    if (metadata.content?.json_uri) {
+      const jsonUri = metadata.content.json_uri;
+      const jsonUrl = convertIpfsToHttp(jsonUri);
+
+      console.log(`📄 Fetching metadata JSON from: ${jsonUrl}`);
+      try {
+        const metadataResponse = await fetch(jsonUrl);
+        if (!metadataResponse.ok) {
+          console.warn(`⚠️ Failed to fetch metadata JSON: ${metadataResponse.status}`);
+          return undefined;
+        }
+
+        const metadataJson = await metadataResponse.json();
+
+        // Extract image from metadata JSON
+        if (metadataJson.image) {
+          console.log('🖼️ Found image URL in metadata JSON');
+          return convertIpfsToHttp(metadataJson.image);
+        }
+      } catch (err) {
+        console.warn(`⚠️ Failed to parse metadata JSON:`, err);
+        return undefined;
+      }
+    }
+
+    return undefined;
+  } catch (err) {
+    console.warn(`⚠️ Error extracting image URL:`, err);
+    return undefined;
+  }
+}
+
+/**
  * Fetches Token Metadata using DAS API
+ * ✅ FIXED: Now properly extracts image URLs from metadata JSON
  */
 async function fetchTokenMetadataDAS(
   mintAddress: string
@@ -134,13 +181,8 @@ async function fetchTokenMetadataDAS(
       const symbol = result.content?.metadata?.symbol || result.token_info?.symbol || '???';
       const decimals = result.token_info?.decimals || 0;
 
-      // Prefer CDN-hosted image from DAS, fall back to JSON URI
-      let imageUrl = result.content?.links?.image || result.content?.json_uri || undefined;
-
-      // Clean up IPFS URLs to use our dedicated gateway
-      if (imageUrl) {
-        imageUrl = convertIpfsToHttp(imageUrl);
-      }
+      // ✅ FIXED: Properly extract image URL from metadata or JSON
+      const imageUrl = await extractImageUrl(result);
 
       const metadataResult: Token2022MetadataResult = {
         name,
