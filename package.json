@@ -26,6 +26,7 @@
     "@vercel/analytics": "^1.5.0",
     "bs58": "^6.0.0",
     "next": "^15.5.0",
+    "pinata": "^2.5.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
