@@ -1,7 +1,7 @@
 // ============================================
 // FILE: app/api/ipfs/[...hash]/route.ts
 // ============================================
-// âœ… Direct HTTP gateway fetch with proper authentication
+// ✅ Updated to use Gateway Key for public IPFS content access
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
@@ -20,10 +20,10 @@ export async function GET(
     }
 
     const gatewayUrl = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
-    const jwt = process.env.PINATA_JWT;
+    const gatewayKey = process.env.PINATA_GATEWAY_KEY;
 
-    if (!gatewayUrl || !jwt) {
-      console.error('❌ Missing PINATA_JWT or NEXT_PUBLIC_PINATA_GATEWAY');
+    if (!gatewayUrl || !gatewayKey) {
+      console.error('❌ Missing NEXT_PUBLIC_PINATA_GATEWAY or PINATA_GATEWAY_KEY');
       return NextResponse.json(
         { error: 'Gateway not configured' },
         { status: 500 }
@@ -32,7 +32,7 @@ export async function GET(
 
     console.log(`📡 Fetching IPFS content: ${hashStr}`);
 
-    // âœ… Direct HTTP request to Pinata gateway with JWT in header
+    // ✅ Direct HTTP request to Pinata gateway with Gateway Key
     const fullUrl = `${gatewayUrl}/ipfs/${hashStr}`;
 
     // Use AbortController for timeout (standard fetch API)
@@ -43,17 +43,19 @@ export async function GET(
       const gatewayResponse = await fetch(fullUrl, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${jwt}`,
+          // ✅ Use Gateway Key instead of JWT for gateway access
+          'X-Pinata-Gateway-Token': gatewayKey,
         },
         signal: controller.signal,
       });
+
       if (!gatewayResponse.ok) {
         const errorText = await gatewayResponse.text();
         console.error(`❌ Gateway error ${gatewayResponse.status}: ${errorText}`);
 
         if (gatewayResponse.status === 401 || gatewayResponse.status === 403) {
           return NextResponse.json(
-            { error: 'Gateway access denied - check JWT and Gateway Access Controls' },
+            { error: 'Gateway access denied - verify PINATA_GATEWAY_KEY is correct' },
             { status: 401 }
           );
         }
@@ -71,7 +73,7 @@ export async function GET(
         );
       }
 
-      console.log(`âœ… Successfully fetched: ${hashStr}`);
+      console.log(`✅ Successfully fetched: ${hashStr}`);
 
       // Stream the response for better performance
       const contentType = gatewayResponse.headers.get('content-type') || 'application/octet-stream';
