@@ -244,12 +244,12 @@ export function TokenMinter() {
           signAllTransactions,
         } as any);
 
-        // ✅ CRITICAL: Pass metadataUri (the JSON hash) as imageUrl for the token
-        // Don't override decimals/initialSupply from metadata - they're already set
+        // ✅ CRITICAL FIX: Pass metadataUri separately, keep imageUrl for reference
         const result = await meteoraService.launchToken({
           metadata: {
             ...metadata,
-            imageUrl: metadataUri, // ✅ This is the METADATA JSON URI
+            imageUrl: imageIpfsUri,      // Keep image IPFS URI for reference
+            metadataUri: metadataUri,    // ✅ FIXED: Metadata JSON URI (points to JSON with image inside)
           },
           config,
           initialBuyAmountSol: meteoraConfig?.enableFirstBuy
@@ -313,14 +313,14 @@ export function TokenMinter() {
           console.log('🎯 Referral wallet:', referralWallet.toBase58());
         }
 
-        // ✅ CRITICAL: Pass metadataUri (the JSON hash) as imageUrl
-        // Don't override decimals/initialSupply - they're already in metadata
+        // ✅ CRITICAL FIX: Pass metadataUri separately, keep imageUrl for reference
         const transaction = await mintService.buildMintTransaction(
           publicKey,
           mintKeypair,
           {
             ...metadata,
-            imageUrl: metadataUri, // ✅ Use METADATA JSON URI here
+            imageUrl: imageIpfsUri,      // Keep image IPFS URI for reference
+            metadataUri: metadataUri,    // ✅ FIXED: Metadata JSON URI (points to JSON with image inside)
           },
           config
         );

@@ -6,7 +6,8 @@ export interface TokenMetadata {
   decimals: number;
   initialSupply: number;
   // description removed
-  imageUrl?: string;
+  imageUrl?: string;        // Keep for backward compatibility and reference
+  metadataUri?: string;     // ✅ NEW: URI to metadata JSON file (should be used as token URI)
 }
 
 export interface MintConfig {
