@@ -49,37 +49,35 @@ const MAX_FALLBACK_ATTEMPTS = 2;
  * Converts IPFS URI to HTTP gateway URL
  * Handles ipfs://, /ipfs/, and direct HTTP URLs (including custom Pinata gateways)
  *
- * ✅ FIXED: Now extracts IPFS hash from ANY format for consistent gateway handling
- * This enables proper fallback to alternative gateways when custom Pinata gateways fail
+ * ✅ CRITICAL FIX: Preserves original HTTP gateway URLs
+ * This ensures content on specific gateways is fetched from the correct source
+ * Only normalizes non-HTTP IPFS formats to your primary gateway
+ * Fallback logic handles missing content on custom gateways
  */
 function convertIpfsToHttp(uri: string): string {
   if (!uri) return '';
 
+  // ✅ If already HTTP URL, preserve it as-is
+  // This respects the original gateway where content was uploaded
+  // Examples: gateway.pinata.cloud, indigo-historic-lark-315.mypinata.cloud, ipfs.io, etc.
+  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    return uri; // ✅ Use original gateway, don't normalize
+  }
+
   let hash = '';
 
-  // Try to extract IPFS hash from various formats
+  // Extract hash from ipfs:// or /ipfs/ format
   if (uri.startsWith('ipfs://')) {
     hash = uri.replace('ipfs://', '');
   } else if (uri.startsWith('/ipfs/')) {
     hash = uri.replace('/ipfs/', '');
-  } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
-    // ✅ NEW: Extract hash from HTTP URLs (including Pinata gateway URLs)
-    // Matches: https://gateway.pinata.cloud/ipfs/{hash}
-    //          https://custom-subdomain.mypinata.cloud/ipfs/{hash}
-    //          https://ipfs.io/ipfs/{hash}
-    const match = uri.match(/\/ipfs\/([a-zA-Z0-9]+)/);
-    if (match) {
-      hash = match[1];
-    } else {
-      // No IPFS hash found in URL, return as-is (might be direct image URL)
-      return uri;
-    }
   } else {
     // Unknown format, assume it's a raw hash
     hash = uri;
   }
 
-  // ✅ Use configured gateway (dedicated if available, otherwise first fallback)
+  // ✅ Only normalize IPFS hashes to primary gateway
+  // (not HTTP URLs which may be on different gateways)
   const gateway = IPFS_GATEWAYS[0];
   return `${gateway}/${hash}`;
 }
