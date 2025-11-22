@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { TokenMetadata, MintConfig } from '@/types/token';
+import { ProjectLinks } from '@/services/metadataUploadService';
 import { sanitizeInput } from '@/utils/validation';
 import { SERVICE_FEE_BASE_SOL, SERVICE_FEE_AUTHORITY_SOL, METEORA_CONFIG } from '@/lib/constants';
 import { uploadImageToIPFS } from '@/services/web3Storage';
@@ -13,7 +14,8 @@ interface TokenFormProps {
     config: MintConfig,
     launchType: LaunchType,
     meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number },
-    imageFile?: File | null // ✅ Pass File object for upload AFTER confirmation
+    imageFile?: File | null,
+    projectLinks?: ProjectLinks
   ) => void;
   isLoading: boolean;
   isWalletConnected: boolean;
@@ -114,9 +116,17 @@ export function TokenForm({
     symbol: '',
     decimals: 9,
     initialSupply: 1000000,
-    // description removed
     imageUrl: '',
   });
+
+  const [projectLinks, setProjectLinks] = useState<ProjectLinks>({
+    x: '',
+    telegram: '',
+    discord: '',
+    website: '',
+  });
+
+  const [showProjectLinks, setShowProjectLinks] = useState(false);
 
   const [config, setConfig] = useState<MintConfig>({
     freezeAuthority: false,
@@ -181,27 +191,38 @@ export function TokenForm({
     }));
   };
 
+  const handleProjectLinkChange = (key: keyof ProjectLinks, value: string) => {
+    setProjectLinks((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isWalletConnected) return;
 
-    // ✅ FIX: Don't upload image here - pass File object to parent
-    // Image will be uploaded AFTER user confirms the transaction
     const sanitizedMetadata: TokenMetadata = {
       ...formData,
       name: sanitizeInput(formData.name),
       symbol: sanitizeInput(formData.symbol).toUpperCase(),
-      // description removed
-      imageUrl: formData.imageUrl, // Keep manual URL if provided
+      imageUrl: formData.imageUrl,
     };
 
-    // Pass imageFile to parent - will be uploaded after confirmation
+    // Clean up project links (remove empty strings)
+    const cleanProjectLinks: ProjectLinks = {};
+    if (projectLinks.x?.trim()) cleanProjectLinks.x = projectLinks.x.trim();
+    if (projectLinks.telegram?.trim()) cleanProjectLinks.telegram = projectLinks.telegram.trim();
+    if (projectLinks.discord?.trim()) cleanProjectLinks.discord = projectLinks.discord.trim();
+    if (projectLinks.website?.trim()) cleanProjectLinks.website = projectLinks.website.trim();
+
     onSubmit(
       sanitizedMetadata,
       config,
       launchType,
       launchType === LaunchType.METEORA ? meteoraConfig : undefined,
-      imageFile // ✅ Pass File object for deferred upload
+      imageFile,
+      Object.keys(cleanProjectLinks).length > 0 ? cleanProjectLinks : undefined
     );
   };
 
@@ -211,146 +232,83 @@ export function TokenForm({
       className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl p-8 space-y-6"
     >
       {/* Launch Type Selection */}
-      {METEORA_CONFIG.ENABLED && (
-        <div className="space-y-4 pb-6 border-b border-dark-200">
-          <div className="text-sm font-semibold text-primary-400">
-            Launch Type
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-start space-x-3 cursor-pointer p-4 rounded-lg border border-dark-300 hover:border-primary-500/50 transition-colors">
-              <input
-                type="radio"
-                checked={launchType === LaunchType.DIRECT}
-                onChange={() => setLaunchType(LaunchType.DIRECT)}
-                className="w-5 h-5 text-primary-500 mt-0.5"
-                disabled={isLoading || !isWalletConnected}
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-300 mb-1">
-                  Direct Token 2022 Launch
-                </div>
-                <p className="text-xs text-gray-400">
-                  Create token directly on-chain with fixed supply
-                </p>
-              </div>
-            </label>
-
-            <label className="flex items-start space-x-3 cursor-pointer p-4 rounded-lg border border-dark-300 hover:border-primary-500/50 transition-colors">
-              <input
-                type="radio"
-                checked={launchType === LaunchType.METEORA}
-                onChange={() => setLaunchType(LaunchType.METEORA)}
-                className="w-5 h-5 text-primary-500 mt-0.5"
-                disabled={isLoading || !isWalletConnected}
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-300 mb-1">
-                  Moon Mint Bonding Curve
-                </div>
-                <p className="text-xs text-gray-400">
-                  Launch with no fees and instant liquidity on the Moon Mint bonding curve, powered by Meteora
-                </p>
-              </div>
-            </label>
-
-            {launchType === LaunchType.METEORA && (
-              <div className="ml-8 space-y-4 bg-primary-500/5 p-4 rounded-lg border border-primary-500/20">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={meteoraConfig.enableFirstBuy}
-                    onChange={(e) => setMeteoraConfig({
-                      ...meteoraConfig,
-                      enableFirstBuy: e.target.checked
-                    })}
-                    className="w-5 h-5 rounded border-dark-300 text-primary-500"
-                    disabled={isLoading || !isWalletConnected}
-                  />
-                  <div className="text-sm font-medium text-gray-300">
-                    Enable First Buy
-                  </div>
-                </label>
-
-                {meteoraConfig.enableFirstBuy && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-gray-300">
-                      Initial Buy Amount (SOL)
-                    </label>
-                    <input
-                      type="number"
-                      value={meteoraConfig.initialBuyAmount}
-                      onChange={(e) => setMeteoraConfig({
-                        ...meteoraConfig,
-                        initialBuyAmount: parseFloat(e.target.value) || 0
-                      })}
-                      min={0}
-                      step={0.01}
-                      className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      disabled={isLoading || !isWalletConnected}
-                      placeholder="0.1"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Automatically purchase tokens after pool creation
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      <div>
+        <label className="block text-sm font-medium mb-3 text-gray-300">
+          Launch Type <span className="text-red-400">*</span>
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setLaunchType(LaunchType.METEORA)}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              launchType === LaunchType.METEORA
+                ? 'border-primary-500 bg-primary-500/10'
+                : 'border-dark-300 bg-dark-50 hover:border-dark-200'
+            }`}
+            disabled={isLoading || !isWalletConnected}
+          >
+            <div className="font-medium text-white mb-1">Moon Mint Bonding Curve</div>
+            <div className="text-xs text-gray-400">Instant trading and liquidity</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setLaunchType(LaunchType.DIRECT)}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              launchType === LaunchType.DIRECT
+                ? 'border-primary-500 bg-primary-500/10'
+                : 'border-dark-300 bg-dark-50 hover:border-dark-200'
+            }`}
+            disabled={isLoading || !isWalletConnected}
+          >
+            <div className="font-medium text-white mb-1">Direct Token 2022</div>
+            <div className="text-xs text-gray-400">Receive all tokens and customize authorities</div>
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Image Upload */}
       <div>
-        <label
-          className="block text-sm font-medium mb-3 text-gray-300"
-          htmlFor="imageUpload"
-        >
-          Token Icon <span className="text-gray-500">(Optional)</span>
+        <label className="block text-sm font-medium mb-3 text-gray-300">
+          Token Image (Optional)
         </label>
-
-        <div className="flex items-start gap-4">
-          {/* Preview Box */}
-          <div className="flex-shrink-0">
-            <div className="w-20 h-20 rounded-lg border border-dark-300 bg-dark-50 overflow-hidden flex items-center justify-center">
-              {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              )}
-            </div>
-          </div>
-
-          {/* File Input */}
+        <div className="flex gap-4">
           <div className="flex-1">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full px-4 py-3 border-2 border-dashed border-dark-300 rounded-lg hover:border-primary-500 transition-colors text-gray-300 hover:text-primary-400"
+              disabled={isLoading || !isWalletConnected}
+            >
+              {imageFile ? '✓ Image selected' : 'Click to upload or drag image'}
+            </button>
             <input
-              type="file"
               ref={fileInputRef}
+              type="file"
               accept="image/*"
               onChange={handleFileChange}
               className="hidden"
-              id="file-upload"
               disabled={isLoading || !isWalletConnected}
             />
-            <label
-              htmlFor="file-upload"
-              className="inline-block bg-dark-200 hover:bg-dark-300 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm font-medium border border-dark-300"
-            >
-              Choose File
-            </label>
-            <p className="text-xs text-gray-500 mt-2">
-              Supported: JPG, PNG, GIF. Max 4MB.
-              <br />
-              <span className="text-primary-400">Uploaded to IPFS after you confirm the transaction</span>
-            </p>
           </div>
+          {previewUrl && (
+            <div className="relative">
+              <img
+                src={previewUrl}
+                alt="Token preview"
+                className="w-20 h-20 rounded-lg object-cover border border-dark-300"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setImageFile(null);
+                  setPreviewUrl(null);
+                }}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -444,7 +402,145 @@ export function TokenForm({
         </div>
       )}
 
-      {/* Description Field Removed */}
+      {/* Project Links - Collapsible Section */}
+      <div className="border-t border-dark-200 pt-6">
+        <button
+          type="button"
+          onClick={() => setShowProjectLinks(!showProjectLinks)}
+          className="flex items-center justify-between w-full text-left"
+          disabled={isLoading || !isWalletConnected}
+        >
+          <span className="text-sm font-semibold text-primary-400">
+            🔗 Project Links (Optional)
+          </span>
+          <span className="text-primary-400">
+            {showProjectLinks ? '▼' : '▶'}
+          </span>
+        </button>
+
+        {showProjectLinks && (
+          <div className="mt-4 space-y-4">
+            <p className="text-xs text-gray-400 mb-4">
+              Add links to your project's social media and website. These will be included in your token metadata.
+            </p>
+
+            {/* X/Twitter */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="twitter">
+                <span className="mr-2">𝕏</span>X / Twitter
+              </label>
+              <input
+                id="twitter"
+                type="url"
+                value={projectLinks.x || ''}
+                onChange={(e) => handleProjectLinkChange('x', e.target.value)}
+                placeholder="https://x.com/yourproject"
+                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                disabled={isLoading || !isWalletConnected}
+              />
+            </div>
+
+            {/* Telegram */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="telegram">
+                <span className="mr-2">📱</span>Telegram
+              </label>
+              <input
+                id="telegram"
+                type="url"
+                value={projectLinks.telegram || ''}
+                onChange={(e) => handleProjectLinkChange('telegram', e.target.value)}
+                placeholder="https://t.me/yourproject"
+                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                disabled={isLoading || !isWalletConnected}
+              />
+            </div>
+
+            {/* Discord */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="discord">
+                <span className="mr-2">💬</span>Discord
+              </label>
+              <input
+                id="discord"
+                type="url"
+                value={projectLinks.discord || ''}
+                onChange={(e) => handleProjectLinkChange('discord', e.target.value)}
+                placeholder="https://discord.gg/yourserver"
+                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                disabled={isLoading || !isWalletConnected}
+              />
+            </div>
+
+            {/* Website */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="website">
+                <span className="mr-2">🌐</span>Website
+              </label>
+              <input
+                id="website"
+                type="url"
+                value={projectLinks.website || ''}
+                onChange={(e) => handleProjectLinkChange('website', e.target.value)}
+                placeholder="https://yourproject.com"
+                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                disabled={isLoading || !isWalletConnected}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Meteora First Buy Option */}
+      {launchType === LaunchType.METEORA && (
+        <div className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={meteoraConfig.enableFirstBuy}
+                  onChange={(e) =>
+                    setMeteoraConfig({
+                      ...meteoraConfig,
+                      enableFirstBuy: e.target.checked,
+                    })
+                  }
+                  className="w-4 h-4 rounded border-dark-300 text-primary-500"
+                  disabled={isLoading || !isWalletConnected}
+                />
+                <span className="font-semibold text-primary-300 text-sm">
+                  Enable First Buy
+                </span>
+              </label>
+              <p className="text-xs text-gray-400 mt-2">
+                Automatically buy tokens when the pool launches (costs additional SOL)
+              </p>
+            </div>
+          </div>
+          {meteoraConfig.enableFirstBuy && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2 text-gray-300">
+                First Buy Amount (SOL)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={meteoraConfig.initialBuyAmount}
+                onChange={(e) =>
+                  setMeteoraConfig({
+                    ...meteoraConfig,
+                    initialBuyAmount: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                disabled={isLoading || !isWalletConnected}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Authorities (only for Direct launch) */}
       {launchType === LaunchType.DIRECT && (

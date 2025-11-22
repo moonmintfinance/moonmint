@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { AtomicToken2022MintService } from '@/services/tokenMintService';
 import { MeteoraLaunchService } from '@/services/Meteoralaunchservice';
 import { TokenMetadata, MintConfig } from '@/types/token';
+import { ProjectLinks, uploadMetadataJson, validateMetadataJson } from '@/services/metadataUploadService';
 import { validateTokenMetadata } from '@/utils/validation';
 import { submitGuard, validateTransaction, sanitizeErrorMessage } from '@/utils/security';
 import { getReferralWallet } from '@/utils/referral';
@@ -35,6 +36,7 @@ export function TokenMinter() {
     launchType: LaunchType;
     meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number };
     imageFile?: File | null;
+    projectLinks?: ProjectLinks;
   } | null>(null);
 
   /**
@@ -42,7 +44,7 @@ export function TokenMinter() {
    */
   const confirmTransactionServerSide = async (signature: string): Promise<boolean> => {
     try {
-      console.log('📡 [Client] Sending confirmation request to server...');
+      console.log('🔔 [Client] Sending confirmation request to server...');
 
       const response = await fetch('/api/confirm-transaction', {
         method: 'POST',
@@ -71,7 +73,8 @@ export function TokenMinter() {
     config: MintConfig,
     selectedLaunchType: LaunchType,
     meteoraConfig?: { enableFirstBuy: boolean; initialBuyAmount: number },
-    imageFile?: File | null
+    imageFile?: File | null,
+    projectLinks?: ProjectLinks
   ) => {
     if (!connected || !publicKey) {
       toast.error('Please connect your wallet first');
@@ -106,6 +109,7 @@ export function TokenMinter() {
         launchType: LaunchType.METEORA,
         meteoraConfig,
         imageFile,
+        projectLinks,
       });
     } else {
       const directService = new AtomicToken2022MintService(connection);
@@ -117,6 +121,7 @@ export function TokenMinter() {
         totalFee,
         launchType: LaunchType.DIRECT,
         imageFile,
+        projectLinks,
       });
     }
   };
@@ -127,7 +132,7 @@ export function TokenMinter() {
       return;
     }
 
-    const { metadata, config, launchType, meteoraConfig, imageFile } = pendingMint;
+    const { metadata, config, launchType, meteoraConfig, imageFile, projectLinks } = pendingMint;
 
     // Prevent double-submit
     if (!submitGuard.markProcessing('mint-token')) {
@@ -146,9 +151,12 @@ export function TokenMinter() {
     );
 
     try {
-      // ✅ SECURE: Upload image with wallet signature authentication
-      let finalImageUrl = metadata.imageUrl;
+      let imageIpfsUri = '';
+      let metadataUri = '';
 
+      // =========================================================================
+      // STEP 1: UPLOAD IMAGE (if provided)
+      // =========================================================================
       if (imageFile) {
         if (!signMessage) {
           console.warn('⚠️ Wallet does not support message signing. Proceeding without image.');
@@ -156,24 +164,24 @@ export function TokenMinter() {
             duration: 4000,
           });
         } else {
-          console.log('📤 Uploading image with wallet authentication...');
-          const uploadingToast = toast.loading('Signing authentication & uploading image...');
+          console.log('📤 STEP 1: Uploading image with wallet authentication...');
+          const imageUploadToast = toast.loading('Signing & uploading image...');
 
           try {
-            // Upload with wallet signature
-            finalImageUrl = await uploadImageToIPFS(
+            // Upload with wallet signature - returns ipfs://hash
+            imageIpfsUri = await uploadImageToIPFS(
               imageFile,
               signMessage,
               publicKey.toBase58()
             );
 
-            console.log('✅ Image uploaded securely:', finalImageUrl);
-            toast.success('Image uploaded!', { id: uploadingToast });
+            console.log('✅ Image uploaded:', imageIpfsUri);
+            toast.success('Image uploaded!', { id: imageUploadToast });
           } catch (uploadError) {
             console.error('⚠️ Image upload failed:', uploadError);
             const errorMsg = uploadError instanceof Error ? uploadError.message : 'Unknown error';
             toast.error(`Image upload failed: ${errorMsg}. Proceeding without image.`, {
-              id: uploadingToast,
+              id: imageUploadToast,
               duration: 5000,
             });
             // Continue without image - don't fail the whole transaction
@@ -181,11 +189,46 @@ export function TokenMinter() {
         }
       }
 
-      // Update metadata with final image URL
-      const metadataWithImage = { ...metadata, imageUrl: finalImageUrl };
+      // =========================================================================
+      // STEP 2: CREATE & UPLOAD METADATA JSON ✅ CRITICAL
+      // =========================================================================
+      console.log('📝 STEP 2: Creating and uploading metadata JSON...');
+
+      // Validate metadata before upload
+      const validation = validateMetadataJson(metadata, imageIpfsUri, projectLinks);
+      if (!validation.valid) {
+        throw new Error(`Metadata validation failed: ${validation.errors.join(', ')}`);
+      }
+
+      const metadataUploadToast = toast.loading('Creating metadata JSON & uploading...');
+
+      try {
+        // ✅ THIS IS THE KEY STEP: Create JSON with image field and project links
+        // Then upload it to IPFS
+        metadataUri = await uploadMetadataJson(metadata, imageIpfsUri, projectLinks);
+
+        console.log('✅ Metadata JSON uploaded:', metadataUri);
+        toast.success('Metadata JSON created!', { id: metadataUploadToast });
+      } catch (metadataError) {
+        console.error('❌ Metadata JSON upload failed:', metadataError);
+        toast.error('Failed to create metadata JSON', {
+          id: metadataUploadToast,
+          duration: 5000,
+        });
+        throw metadataError;
+      }
+
+      // =========================================================================
+      // STEP 3: LAUNCH TOKEN WITH METADATA URI ✅ CORRECT
+      // =========================================================================
+      console.log('🚀 STEP 3: Launching token with metadata URI...');
+      console.log(`   Using metadata URI: ${metadataUri}`);
 
       if (launchType === LaunchType.METEORA) {
-        console.log('🚀 Starting Meteora bonding curve launch...');
+        // =====================================================================
+        // METEORA BONDING CURVE LAUNCH
+        // =====================================================================
+        console.log('🌊 Launching on Meteora bonding curve...');
 
         if (!signTransaction || !signAllTransactions) {
           throw new Error('Wallet does not support signing transactions');
@@ -197,8 +240,13 @@ export function TokenMinter() {
           signAllTransactions,
         } as any);
 
+        // ✅ CRITICAL: Pass metadataUri (the JSON hash) as imageUrl for the token
+        // Don't override decimals/initialSupply from metadata - they're already set
         const result = await meteoraService.launchToken({
-          metadata: metadataWithImage,
+          metadata: {
+            ...metadata,
+            imageUrl: metadataUri, // ✅ This is the METADATA JSON URI
+          },
           config,
           initialBuyAmountSol: meteoraConfig?.enableFirstBuy
             ? meteoraConfig.initialBuyAmount
@@ -228,8 +276,10 @@ export function TokenMinter() {
           poolAddress: result.poolAddress,
         });
       } else {
-        // Direct Token 2022 launch
-        console.log('🚀 Starting atomic Token 2022 mint operation...');
+        // =====================================================================
+        // DIRECT TOKEN 2022 LAUNCH
+        // =====================================================================
+        console.log('🚀 Launching direct Token 2022...');
 
         const serviceFeeRecipient = SERVICE_FEE_WALLET
           ? new PublicKey(SERVICE_FEE_WALLET)
@@ -259,10 +309,15 @@ export function TokenMinter() {
           console.log('🎯 Referral wallet:', referralWallet.toBase58());
         }
 
+        // ✅ CRITICAL: Pass metadataUri (the JSON hash) as imageUrl
+        // Don't override decimals/initialSupply - they're already in metadata
         const transaction = await mintService.buildMintTransaction(
           publicKey,
           mintKeypair,
-          metadataWithImage,
+          {
+            ...metadata,
+            imageUrl: metadataUri, // ✅ Use METADATA JSON URI here
+          },
           config
         );
 

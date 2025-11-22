@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`📥 File: ${file.name} (${file.size} bytes)`);
-    console.log(`🔐 Wallet: ${publicKey.slice(0, 8)}...${publicKey.slice(-8)}`);
+    console.log(`🔑 Wallet: ${publicKey.slice(0, 8)}...${publicKey.slice(-8)}`);
 
     // Verify signature
     const isValidSignature = verifyWalletSignature(message, signature, publicKey);
@@ -187,13 +187,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Use dedicated gateway for the returned URL
-    // Falls back to public gateway if env var is missing, but prioritized the dedicated one
+    // Falls back to public gateway if env var is missing
     const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
     const url = `${gateway}/ipfs/${pinataData.IpfsHash}`;
 
     console.log(`✅ Upload successful: ${url}\n`);
 
-    return NextResponse.json({ url });
+    // ✅ UPDATED: Return both url AND IpfsHash for metadata service
+    return NextResponse.json({
+      url,
+      IpfsHash: pinataData.IpfsHash
+    });
   } catch (error) {
     console.error('❌ Upload failed:', error);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
