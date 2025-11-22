@@ -1,30 +1,8 @@
 // ============================================
 // FILE: app/api/ipfs/[...hash]/route.ts
 // ============================================
-// ✅ Updated to use Pinata V3 SDK (no JWT on gateway endpoint)
+// âœ… Direct HTTP gateway fetch with proper authentication
 import { NextRequest, NextResponse } from 'next/server';
-import { PinataSDK } from 'pinata';
-
-// Initialize Pinata SDK once (reused across requests)
-let pinata: PinataSDK | null = null;
-
-function getPinataClient(): PinataSDK {
-  if (!pinata) {
-    const jwt = process.env.PINATA_JWT;
-    const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
-
-    if (!jwt || !gateway) {
-      throw new Error('Missing PINATA_JWT or NEXT_PUBLIC_PINATA_GATEWAY environment variables');
-    }
-
-    pinata = new PinataSDK({
-      pinataJwt: jwt,
-      pinataGateway: gateway,
-    });
-  }
-
-  return pinata;
-}
 
 export async function GET(
   request: NextRequest,
@@ -41,51 +19,85 @@ export async function GET(
       );
     }
 
+    const gatewayUrl = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
+    const jwt = process.env.PINATA_JWT;
+
+    if (!gatewayUrl || !jwt) {
+      console.error('❌ Missing PINATA_JWT or NEXT_PUBLIC_PINATA_GATEWAY');
+      return NextResponse.json(
+        { error: 'Gateway not configured' },
+        { status: 500 }
+      );
+    }
+
     console.log(`📡 Fetching IPFS content: ${hashStr}`);
 
-    const pinataClient = getPinataClient();
+    // âœ… Direct HTTP request to Pinata gateway with JWT in header
+    const fullUrl = `${gatewayUrl}/ipfs/${hashStr}`;
 
-    // ✅ SDK handles gateway logic automatically
-    const response = await pinataClient.gateways.public.get(hashStr);
+    // Use AbortController for timeout (standard fetch API)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    console.log(`✅ Successfully fetched: ${hashStr}`);
+    try {
+      const gatewayResponse = await fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${jwt}`,
+        },
+        signal: controller.signal,
+      });
+      if (!gatewayResponse.ok) {
+        const errorText = await gatewayResponse.text();
+        console.error(`❌ Gateway error ${gatewayResponse.status}: ${errorText}`);
 
-    // Handle the response - it's a ReadableStream for binary content
-    const cacheControl = 'public, max-age=31536000, immutable'; // IPFS content is immutable
+        if (gatewayResponse.status === 401 || gatewayResponse.status === 403) {
+          return NextResponse.json(
+            { error: 'Gateway access denied - check JWT and Gateway Access Controls' },
+            { status: 401 }
+          );
+        }
 
-    // The response is already a ReadableStream from the SDK
-    // We can pass it directly to NextResponse
-    return new NextResponse(response as any, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Cache-Control': cacheControl,
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+        if (gatewayResponse.status === 404) {
+          return NextResponse.json(
+            { error: 'Content not found on IPFS' },
+            { status: 404 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: `Gateway error: ${gatewayResponse.statusText}` },
+          { status: gatewayResponse.status }
+        );
+      }
+
+      console.log(`âœ… Successfully fetched: ${hashStr}`);
+
+      // Stream the response for better performance
+      const contentType = gatewayResponse.headers.get('content-type') || 'application/octet-stream';
+      const contentLength = gatewayResponse.headers.get('content-length');
+
+      const cacheControl = 'public, max-age=31536000, immutable'; // IPFS is immutable
+
+      return new NextResponse(gatewayResponse.body, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': contentLength || '',
+          'Cache-Control': cacheControl,
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        console.error('⏱️ IPFS proxy timeout');
+        console.error('⏱️ IPFS proxy timeout (30s exceeded)');
         return NextResponse.json(
           { error: 'Request timeout' },
           { status: 504 }
-        );
-      }
-
-      if (error.message.includes('404') || error.message.includes('not found')) {
-        console.error(`❌ IPFS content not found: ${error.message}`);
-        return NextResponse.json(
-          { error: 'Content not found on IPFS' },
-          { status: 404 }
-        );
-      }
-
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        console.error(`❌ Gateway access denied: ${error.message}`);
-        return NextResponse.json(
-          { error: 'Access denied - verify Gateway Access Controls' },
-          { status: 401 }
         );
       }
 
