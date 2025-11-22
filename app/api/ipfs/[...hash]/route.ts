@@ -45,24 +45,20 @@ export async function GET(
 
     const pinataClient = getPinataClient();
 
-    // ✅ SDK handles gateway logic automatically (no manual JWT headers)
-    const data = await pinataClient.gateways.public.get(hashStr);
+    // ✅ SDK handles gateway logic automatically
+    const response = await pinataClient.gateways.public.get(hashStr);
 
     console.log(`✅ Successfully fetched: ${hashStr}`);
 
-    // Determine content type from data or use default
-    const contentType = (() => {
-      if (data instanceof Blob) return data.type || 'application/octet-stream';
-      if (data instanceof ArrayBuffer) return 'application/octet-stream';
-      return 'application/octet-stream';
-    })();
-
+    // Handle the response - it's a ReadableStream for binary content
     const cacheControl = 'public, max-age=31536000, immutable'; // IPFS content is immutable
 
-    return new NextResponse(data instanceof Blob ? data.stream() : data, {
+    // The response is already a ReadableStream from the SDK
+    // We can pass it directly to NextResponse
+    return new NextResponse(response as any, {
       status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': 'application/octet-stream',
         'Cache-Control': cacheControl,
         'Access-Control-Allow-Origin': '*',
       },
@@ -88,7 +84,7 @@ export async function GET(
       if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         console.error(`❌ Gateway access denied: ${error.message}`);
         return NextResponse.json(
-          { error: 'Access denied - check Gateway Access Controls' },
+          { error: 'Access denied - verify Gateway Access Controls' },
           { status: 401 }
         );
       }
