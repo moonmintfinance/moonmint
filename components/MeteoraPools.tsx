@@ -41,11 +41,9 @@ const DEDICATED_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
 
 // IPFS Gateways - Ordered by reliability/speed
 const IPFS_GATEWAYS = [
-  // 1. Dedicated Gateway (Best)
-  ...(DEDICATED_GATEWAY ? [`${DEDICATED_GATEWAY}/ipfs`] : []),
-  // 2. Public Fallbacks
-  'https://ipfs.io/ipfs',
+  '/api/ipfs',  // ← Use server proxy with JWT auth
   'https://gateway.pinata.cloud/ipfs',
+  'https://ipfs.io/ipfs',
   'https://cloudflare-ipfs.com/ipfs',
   'https://dweb.link/ipfs',
 ];
