@@ -75,17 +75,20 @@ export async function GET(
 
       console.log(`✅ Successfully fetched: ${hashStr}`);
 
-      // Stream the response for better performance
+      // Get content type and length from gateway response
       const contentType = gatewayResponse.headers.get('content-type') || 'application/octet-stream';
       const contentLength = gatewayResponse.headers.get('content-length');
 
+      // ✅ Read response as ArrayBuffer to avoid stream issues
+      const arrayBuffer = await gatewayResponse.arrayBuffer();
+
       const cacheControl = 'public, max-age=31536000, immutable'; // IPFS is immutable
 
-      return new NextResponse(gatewayResponse.body, {
+      return new NextResponse(arrayBuffer, {
         status: 200,
         headers: {
           'Content-Type': contentType,
-          'Content-Length': contentLength || '',
+          ...(contentLength ? { 'Content-Length': contentLength } : {}),
           'Cache-Control': cacheControl,
           'Access-Control-Allow-Origin': '*',
         },
