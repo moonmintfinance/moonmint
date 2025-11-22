@@ -44,8 +44,8 @@ const pendingToken2022Requests = new Map<
   }>
 >();
 
-// Cache TTL in milliseconds (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
+// Cache TTL in milliseconds (30 days)
+const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Get cached metadata JSON response
