@@ -41,15 +41,6 @@ export function WalletButton() {
   return (
     <div className="relative">
       <WalletMultiButton />
-
-      {/* Debug indicator (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute -bottom-6 left-0 text-xs text-gray-500 whitespace-nowrap">
-          {connecting && '🔄 Connecting'}
-          {connected && '✅ Connected'}
-          {!connected && !connecting && '⭕ Disconnected'}
-        </div>
-      )}
     </div>
   );
 }

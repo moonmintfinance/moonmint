@@ -9,6 +9,7 @@ interface TransactionConfirmationProps {
   metadata: TokenMetadata;
   config: MintConfig;
   totalFee: number;
+  networkFee?: number; // in lamports, defaults to 5000 (~0.00005 SOL)
   launchType: LaunchType;
   onConfirm: () => void;
   onCancel: () => void;
@@ -18,11 +19,13 @@ export function TransactionConfirmation({
   metadata,
   config,
   totalFee,
+  networkFee = 5000, // default to ~0.00005 SOL
   launchType,
   onConfirm,
   onCancel,
 }: TransactionConfirmationProps) {
   const totalFeeSol = (totalFee / LAMPORTS_PER_SOL).toFixed(4);
+  const networkFeeSol = (networkFee / LAMPORTS_PER_SOL).toFixed(6);
   const referralWallet = getReferralWallet();
   const referralEarnings = referralWallet ? Math.floor(totalFee * 0.55) : 0;
   const referralEarningsSol = (referralEarnings / LAMPORTS_PER_SOL).toFixed(4);
@@ -172,12 +175,27 @@ export function TransactionConfirmation({
                     <li>Price increases as tokens are purchased from the curve</li>
                     <li>Automatic liquidity provisioning</li>
                     <li>No manual liquidity management needed</li>
-                    <li>Automatic migration to DEX when threshold reached</li>
+                    <li>Automatic migration to the Meteora DEX after graduation</li>
                   </ul>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Balance Requirement Warning */}
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+            <div className="flex gap-3">
+              <div className="text-orange-500 text-xl flex-shrink-0">ℹ️</div>
+              <div>
+                <div className="font-semibold text-orange-400 text-sm">
+                  Minimum Balance Required
+                </div>
+                <div className="text-sm text-orange-300 mt-1">
+                  You need at least <span className="font-bold">0.021 SOL</span> in your wallet to execute this transaction. You will only be charged <span className="font-bold">{networkFeeSol} SOL</span> in network fees.
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Cost Breakdown */}
           <div className="space-y-4">
@@ -194,10 +212,12 @@ export function TransactionConfirmation({
                   {totalFeeSol} SOL
                 </span>
               </div>
-              <div className="text-xs text-gray-500">
-                Plus network transaction fees (~0.0001 SOL)
-                Please note that that you need a minium of 0.021 SOL in your wallet to make the transaction
-                but you will only be charged the 0.0001 SOL fee
+
+              <div className="border-t border-dark-200 pt-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-400">Network Fee:</span>
+                  <span className="text-gray-300">{networkFeeSol} SOL</span>
+                </div>
               </div>
 
               {referralWallet && (
