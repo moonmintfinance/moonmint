@@ -195,7 +195,9 @@ export function TransactionConfirmation({
                 </span>
               </div>
               <div className="text-xs text-gray-500">
-                Plus network transaction fees (~0.001 SOL)
+                Plus network transaction fees (~0.0001 SOL)
+                Please note that that you need a minium of 0.021 SOL in your wallet to make the transaction
+                but you will only be charged the 0.0001 SOL fee
               </div>
 
               {referralWallet && (
@@ -222,7 +224,7 @@ export function TransactionConfirmation({
             onClick={onConfirm}
             className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 rounded-lg transition-colors"
           >
-            {isMeteora ? 'Launch on Moon Mint bonding curve' : 'Sign & Create'}
+            {isMeteora ? 'Launch' : 'Sign & Create'}
           </button>
         </div>
       </div>
