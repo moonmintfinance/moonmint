@@ -25,6 +25,36 @@ export interface MetadataJsonPayload {
 }
 
 /**
+ * Converts IPFS URI to HTTP gateway URL for metadata JSON
+ * ✅ ALWAYS uses public Pinata gateway (not private gateway)
+ * ipfs://QmHash -> https://gateway.pinata.cloud/ipfs/QmHash
+ *
+ * Public gateways are required because wallets and external services
+ * won't have access to private/custom gateways
+ */
+function convertIpfsToGatewayUrl(imageUri: string): string {
+  if (!imageUri) return imageUri;
+
+  // If already HTTP, return as-is
+  if (imageUri.startsWith('http://') || imageUri.startsWith('https://')) {
+    return imageUri;
+  }
+
+  // ✅ ALWAYS use public Pinata gateway for metadata images
+  // Private gateways won't work for wallets and external services
+  const PUBLIC_GATEWAY = 'https://gateway.pinata.cloud';
+
+  // Convert ipfs:// to gateway URL
+  if (imageUri.startsWith('ipfs://')) {
+    const hash = imageUri.replace('ipfs://', '');
+    return `${PUBLIC_GATEWAY}/ipfs/${hash}`;
+  }
+
+  // If just a hash, convert to gateway URL
+  return `${PUBLIC_GATEWAY}/ipfs/${imageUri}`;
+}
+
+/**
  * Validates URLs for project links
  */
 function validateUrl(url: string): boolean {
@@ -106,16 +136,11 @@ export async function uploadMetadataJson(
 
     // 2. Add image if available
     if (imageUri) {
-      // Ensure it's in ipfs:// format
-      let formattedImageUri = imageUri;
-
-      if (!formattedImageUri.startsWith('ipfs://') && !formattedImageUri.startsWith('http')) {
-        // If it's just a hash, prepend ipfs://
-        formattedImageUri = `ipfs://${formattedImageUri}`;
-      }
-
-      metadataJson.image = formattedImageUri;
-      console.log(`🖼️  Image URI: ${formattedImageUri}`);
+      // ✅ CONVERT TO HTTP GATEWAY URL FOR COMPATIBILITY
+      const gatewayImageUrl = convertIpfsToGatewayUrl(imageUri);
+      metadataJson.image = gatewayImageUrl;
+      console.log(`🖼️  Image URI (IPFS): ${imageUri}`);
+      console.log(`🔗 Image URL (Gateway): ${gatewayImageUrl}`);
     } else {
       console.warn('⚠️  No image provided for metadata');
     }
@@ -293,10 +318,9 @@ export function createMetadataJson(
   };
 
   if (imageUri) {
-    const formattedUri = imageUri.startsWith('ipfs://') || imageUri.startsWith('http')
-      ? imageUri
-      : `ipfs://${imageUri}`;
-    jsonObj.image = formattedUri;
+    // ✅ CONVERT TO HTTP GATEWAY URL FOR COMPATIBILITY
+    const gatewayImageUrl = convertIpfsToGatewayUrl(imageUri);
+    jsonObj.image = gatewayImageUrl;
   }
 
   if (projectLinks && Object.values(projectLinks).some(v => v)) {
