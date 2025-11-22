@@ -6,6 +6,17 @@ import { TOKEN_2022_PROGRAM_ID, getMint, getMetadataPointerState, getTokenMetada
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import Image from 'next/image';
 import { SOLANA_RPC_ENDPOINT, METEORA_CONFIG } from '@/lib/constants';
+import {
+  getCachedMetadataJson,
+  setCachedMetadataJson,
+  getPendingMetadataJsonRequest,
+  setPendingMetadataJsonRequest,
+  getCachedToken2022Metadata,
+  setCachedToken2022Metadata,
+  getPendingToken2022Request,
+  setPendingToken2022Request,
+  getCacheStats,
+} from '@/lib/metadataCache';
 
 interface PoolInfo {
   address: string;
@@ -30,6 +41,9 @@ const IPFS_GATEWAYS = [
   'https://nft.storage/ipfs',
   'https://w3s.link/ipfs',
 ];
+
+// ✅ MAX_FALLBACK_ATTEMPTS set to 2 (instead of trying all 6)
+const MAX_FALLBACK_ATTEMPTS = 2;
 
 /**
  * Converts IPFS URI to HTTP gateway URL
@@ -61,15 +75,34 @@ function convertIpfsToHttp(uri: string): string {
 
 /**
  * Fetches JSON metadata from a URI with IPFS support
- * ✅ FIXED: Now handles both JSON metadata files AND direct image URIs
+ * ✅ WITH CACHING & DEDUPLICATION
+ * ✅ LIMITED TO 2 FALLBACK GATEWAY ATTEMPTS
+ * ✅ LAZY LOADING SUPPORT
  *
  * Some tokens store: uri = JSON metadata file (contains "image" field)
  * Other tokens store: uri = Direct image URL (the URI IS the image)
  */
-async function fetchMetadataJson(uri: string | undefined): Promise<{ image?: string; description?: string }> {
+async function fetchMetadataJson(
+  uri: string | undefined
+): Promise<{ image?: string; description?: string }> {
   try {
     if (!uri || typeof uri !== 'string') {
       return {};
+    }
+
+    // ✅ CHECK CACHE FIRST
+    const cachedMetadata = getCachedMetadataJson(uri);
+    if (cachedMetadata) {
+      return cachedMetadata;
+    }
+
+    // ✅ CHECK IF ALREADY PENDING (DEDUPLICATION)
+    const pendingRequest = getPendingMetadataJsonRequest(uri);
+    if (pendingRequest) {
+      console.log(
+        `⏳ [Dedup] Already fetching metadata for ${uri.substring(0, 20)}...`
+      );
+      return pendingRequest;
     }
 
     console.log(`📥 Fetching metadata from: ${uri}`);
@@ -78,139 +111,182 @@ async function fetchMetadataJson(uri: string | undefined): Promise<{ image?: str
     const httpUrl = convertIpfsToHttp(uri);
     console.log(`🔗 Using URL: ${httpUrl}`);
 
-    // Try primary gateway
-    try {
-      console.log(`⏳ Attempting fetch with 5s timeout...`);
-      const response = await fetch(httpUrl, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000), // 5 second timeout
-      });
+    // Create the promise for this request
+    const promise = (async () => {
+      // Try primary gateway
+      try {
+        console.log(`⏳ Attempting fetch with 5s timeout...`);
+        const response = await fetch(httpUrl, {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000), // 5 second timeout
+        });
 
-      console.log(`📊 Response status: ${response.status} ${response.statusText}`);
-      console.log(`📋 Content-Type: ${response.headers.get('content-type')}`);
+        console.log(
+          `📊 Response status: ${response.status} ${response.statusText}`
+        );
+        console.log(`📋 Content-Type: ${response.headers.get('content-type')}`);
 
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') || '';
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
 
-        // ✅ FIXED: Check if response is an image (not JSON)
-        if (contentType.includes('image/')) {
-          console.log(`🖼️  Response is a direct image! Using URI as image URL.`);
-          return {
-            image: httpUrl, // The URI itself IS the image
-            description: undefined,
-          };
-        }
-
-        // Otherwise, try to parse as JSON
-        try {
-          const data = await response.json();
-          console.log(`✅ Fetched metadata JSON:`, data);
-
-          // Convert image URL if it's IPFS
-          let imageUrl = data.image;
-          if (imageUrl) {
-            console.log(`🖼️  Found image in metadata:`, imageUrl);
-            imageUrl = convertIpfsToHttp(imageUrl);
-            console.log(`🔗 Converted image URL:`, imageUrl);
-          } else {
-            console.log(`⚠️  No image field in metadata JSON`);
-          }
-
-          return {
-            image: imageUrl || undefined,
-            description: data.description || undefined,
-          };
-        } catch (parseErr) {
-          console.error(`❌ Failed to parse JSON response:`, parseErr);
-
-          // ✅ Last resort: if it looks like an image, try using the URL directly
-          if (uri.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i)) {
-            console.log(`🖼️  URI has image extension, using as image URL`);
-            return {
+          // ✅ FIXED: Check if response is an image (not JSON)
+          if (contentType.includes('image/')) {
+            console.log(
+              `🖼️  Response is a direct image! Using URI as image URL.`
+            );
+            const result = {
               image: httpUrl,
               description: undefined,
             };
+            setCachedMetadataJson(uri, result);
+            return result;
           }
 
+          // Otherwise, try to parse as JSON
           try {
-            const text = await response.text();
-            console.log(`📋 Raw response (first 300 chars):`, text.substring(0, 300));
-          } catch (e) {
-            console.log(`(Could not read response body)`);
+            const data = await response.json();
+            console.log(`✅ Fetched metadata JSON:`, data);
+
+            // Convert image URL if it's IPFS
+            let imageUrl = data.image;
+            if (imageUrl) {
+              console.log(`🖼️  Found image in metadata:`, imageUrl);
+              imageUrl = convertIpfsToHttp(imageUrl);
+              console.log(`🔗 Converted image URL:`, imageUrl);
+            } else {
+              console.log(`⚠️  No image field in metadata JSON`);
+            }
+
+            const result = {
+              image: imageUrl || undefined,
+              description: data.description || undefined,
+            };
+            setCachedMetadataJson(uri, result);
+            return result;
+          } catch (parseErr) {
+            console.error(`❌ Failed to parse JSON response:`, parseErr);
+
+            // ✅ Last resort: if it looks like an image, try using the URL directly
+            if (uri.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i)) {
+              console.log(`🖼️  URI has image extension, using as image URL`);
+              const result = {
+                image: httpUrl,
+                description: undefined,
+              };
+              setCachedMetadataJson(uri, result);
+              return result;
+            }
+
+            try {
+              const text = await response.text();
+              console.log(
+                `📋 Raw response (first 300 chars):`,
+                text.substring(0, 300)
+              );
+            } catch (e) {
+              console.log(`(Could not read response body)`);
+            }
           }
+        } else {
+          console.warn(
+            `❌ HTTP Error ${response.status}: ${response.statusText}`
+          );
         }
-      } else {
-        console.warn(`❌ HTTP Error ${response.status}: ${response.statusText}`);
-      }
-    } catch (err) {
-      console.warn(`⚠️  Primary gateway failed:`, err instanceof Error ? err.message : String(err));
-      console.warn(`⏫ Trying alternative gateways...`);
+      } catch (err) {
+        console.warn(
+          `⚠️  Primary gateway failed:`,
+          err instanceof Error ? err.message : String(err)
+        );
+        console.warn(
+          `⏫ Trying alternative gateways (max ${MAX_FALLBACK_ATTEMPTS})...`
+        );
 
-      // Try alternative gateways for IPFS
-      if (uri.startsWith('ipfs://') || uri.startsWith('/ipfs/')) {
-        const hash = uri.replace('ipfs://', '').replace('/ipfs/', '');
-        console.log(`🔍 Extracted IPFS hash: ${hash}`);
+        // ✅ TRY ALTERNATIVE GATEWAYS (LIMITED TO 2 ATTEMPTS)
+        if (uri.startsWith('ipfs://') || uri.startsWith('/ipfs/')) {
+          const hash = uri.replace('ipfs://', '').replace('/ipfs/', '');
+          console.log(`🔍 Extracted IPFS hash: ${hash}`);
 
-        for (let i = 1; i < IPFS_GATEWAYS.length; i++) {
-          const gateway = IPFS_GATEWAYS[i];
-          try {
-            const altUrl = `${gateway}/${hash}`;
-            console.log(`🔄 Trying gateway ${i}: ${gateway}`);
+          // ✅ ONLY TRY 2 FALLBACK GATEWAYS (INSTEAD OF ALL 6)
+          for (let i = 1; i <= MAX_FALLBACK_ATTEMPTS && i < IPFS_GATEWAYS.length; i++) {
+            const gateway = IPFS_GATEWAYS[i];
+            try {
+              const altUrl = `${gateway}/${hash}`;
+              console.log(`🔄 Trying gateway ${i}/${MAX_FALLBACK_ATTEMPTS}: ${gateway}`);
 
-            const response = await fetch(altUrl, {
-              method: 'GET',
-              signal: AbortSignal.timeout(3000),
-            });
+              const response = await fetch(altUrl, {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000),
+              });
 
-            console.log(`📊 Gateway ${i} response: ${response.status}`);
+              console.log(`📊 Gateway ${i} response: ${response.status}`);
 
-            if (response.ok) {
-              const contentType = response.headers.get('content-type') || '';
+              if (response.ok) {
+                const contentType = response.headers.get('content-type') || '';
 
-              // ✅ Check if it's an image
-              if (contentType.includes('image/')) {
-                console.log(`✅ Gateway ${i} returned image! Using as image URL.`);
-                return {
-                  image: altUrl,
-                  description: undefined,
-                };
-              }
-
-              try {
-                const data = await response.json();
-                console.log(`✅ Success with gateway ${i}!`, data);
-
-                let imageUrl = data.image;
-                if (imageUrl) {
-                  imageUrl = convertIpfsToHttp(imageUrl);
-                }
-                return {
-                  image: imageUrl || undefined,
-                  description: data.description || undefined,
-                };
-              } catch (parseErr) {
-                console.warn(`⚠️  Gateway ${i} returned invalid JSON`);
-
-                // ✅ If it's an image by extension, use it
-                if (hash.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
-                  console.log(`🖼️  Hash has image extension, using gateway URL as image`);
-                  return {
+                // ✅ Check if it's an image
+                if (contentType.includes('image/')) {
+                  console.log(`✅ Gateway ${i} returned image! Using as image URL.`);
+                  const result = {
                     image: altUrl,
                     description: undefined,
                   };
+                  setCachedMetadataJson(uri, result);
+                  return result;
+                }
+
+                try {
+                  const data = await response.json();
+                  console.log(`✅ Success with gateway ${i}!`, data);
+
+                  let imageUrl = data.image;
+                  if (imageUrl) {
+                    imageUrl = convertIpfsToHttp(imageUrl);
+                  }
+                  const result = {
+                    image: imageUrl || undefined,
+                    description: data.description || undefined,
+                  };
+                  setCachedMetadataJson(uri, result);
+                  return result;
+                } catch (parseErr) {
+                  console.warn(`⚠️  Gateway ${i} returned invalid JSON`);
+
+                  // ✅ If it's an image by extension, use it
+                  if (hash.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
+                    console.log(
+                      `🖼️  Hash has image extension, using gateway URL as image`
+                    );
+                    const result = {
+                      image: altUrl,
+                      description: undefined,
+                    };
+                    setCachedMetadataJson(uri, result);
+                    return result;
+                  }
                 }
               }
+            } catch (e) {
+              console.log(
+                `⚠️  Gateway ${i} failed:`,
+                e instanceof Error ? e.message : String(e)
+              );
+              continue; // Try next gateway
             }
-          } catch (e) {
-            console.log(`⚠️  Gateway ${i} failed:`, e instanceof Error ? e.message : String(e));
-            continue; // Try next gateway
           }
+          console.error(
+            `❌ All gateways failed for hash: ${hash} (tried ${Math.min(MAX_FALLBACK_ATTEMPTS, IPFS_GATEWAYS.length - 1)} fallbacks)`
+          );
         }
-        console.error(`❌ All gateways failed for hash: ${hash}`);
       }
-    }
 
-    return {};
+      // Return empty if all attempts failed
+      return {};
+    })();
+
+    // ✅ REGISTER PENDING REQUEST (DEDUPLICATION)
+    setPendingMetadataJsonRequest(uri, promise);
+
+    return promise;
   } catch (error) {
     console.error(`❌ Unexpected error in fetchMetadataJson:`, error);
     return {};
@@ -219,7 +295,7 @@ async function fetchMetadataJson(uri: string | undefined): Promise<{ image?: str
 
 /**
  * Fetches Token 2022 metadata directly from the blockchain
- * ✅ FIXED: Now handles the nested data structure and IPFS image URLs
+ * ✅ WITH CACHING & DEDUPLICATION
  *
  * Metadata structure:
  * {
@@ -236,67 +312,106 @@ async function fetchMetadataJson(uri: string | undefined): Promise<{ image?: str
 async function fetchToken2022Metadata(
   connection: Connection,
   mintAddress: PublicKey
-): Promise<{ name?: string; symbol?: string; imageUrl?: string; description?: string }> {
+): Promise<{
+  name?: string;
+  symbol?: string;
+  imageUrl?: string;
+  description?: string;
+}> {
+  const mintAddressStr = mintAddress.toBase58();
+
   try {
-    // 1. Get the mint account to check for MetadataPointer extension
-    const mintAccount = await getMint(
-      connection,
-      mintAddress,
-      'confirmed',
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    // 2. Get the metadata pointer state
-    const metadataPointer = getMetadataPointerState(mintAccount);
-
-    if (!metadataPointer?.metadataAddress) {
-      console.debug('⚠️  No metadata pointer found for mint:', mintAddress.toBase58());
-      return {};
+    // ✅ CHECK CACHE FIRST
+    const cachedMetadata = getCachedToken2022Metadata(mintAddressStr);
+    if (cachedMetadata) {
+      return cachedMetadata;
     }
 
-    // 3. Fetch the actual Token 2022 metadata
-    const metadata = await getTokenMetadata(
-      connection,
-      metadataPointer.metadataAddress,
-      'confirmed',
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    if (!metadata) {
-      return {};
+    // ✅ CHECK IF ALREADY PENDING (DEDUPLICATION)
+    const pendingRequest = getPendingToken2022Request(mintAddressStr);
+    if (pendingRequest) {
+      console.log(
+        `⏳ [Dedup] Already fetching Token 2022 metadata for ${mintAddressStr.substring(0, 8)}...`
+      );
+      return pendingRequest;
     }
 
-    console.debug('📋 Raw metadata:', metadata);
+    // Create the promise for this request
+    const promise = (async () => {
+      // 1. Get the mint account to check for MetadataPointer extension
+      const mintAccount = await getMint(
+        connection,
+        mintAddress,
+        'confirmed',
+        TOKEN_2022_PROGRAM_ID
+      );
 
-    // ✅ FIXED: Handle nested data structure
-    // The metadata can be structured as:
-    // - metadata.data.name (nested)
-    // - metadata.name (flat)
-    const name = (metadata as any)?.data?.name || (metadata as any)?.name;
-    const symbol = (metadata as any)?.data?.symbol || (metadata as any)?.symbol;
-    const uri = (metadata as any)?.data?.uri || (metadata as any)?.uri;
+      // 2. Get the metadata pointer state
+      const metadataPointer = getMetadataPointerState(mintAccount);
 
-    console.debug(`🏷️  Found - Name: ${name}, Symbol: ${symbol}, URI: ${uri}`);
+      if (!metadataPointer?.metadataAddress) {
+        console.debug(
+          '⚠️  No metadata pointer found for mint:',
+          mintAddress.toBase58()
+        );
+        return {};
+      }
 
-    // 4. If there's a URI, fetch the JSON metadata to get the image
-    let imageUrl: string | undefined;
-    let description: string | undefined;
+      // 3. Fetch the actual Token 2022 metadata
+      const metadata = await getTokenMetadata(
+        connection,
+        metadataPointer.metadataAddress,
+        'confirmed',
+        TOKEN_2022_PROGRAM_ID
+      );
 
-    if (uri) {
-      const jsonMetadata = await fetchMetadataJson(uri);
-      imageUrl = jsonMetadata.image;
-      description = jsonMetadata.description;
-      console.log(`🖼️  Image URL: ${imageUrl || 'None'}`);
-    }
+      if (!metadata) {
+        return {};
+      }
 
-    return {
-      name,
-      symbol,
-      imageUrl,
-      description,
-    };
+      console.debug('📋 Raw metadata:', metadata);
+
+      // ✅ FIXED: Handle nested data structure
+      const name = (metadata as any)?.data?.name || (metadata as any)?.name;
+      const symbol = (metadata as any)?.data?.symbol || (metadata as any)?.symbol;
+      const uri = (metadata as any)?.data?.uri || (metadata as any)?.uri;
+
+      console.debug(`🏷️  Found - Name: ${name}, Symbol: ${symbol}, URI: ${uri}`);
+
+      // 4. If there's a URI, fetch the JSON metadata to get the image
+      let imageUrl: string | undefined;
+      let description: string | undefined;
+
+      if (uri) {
+        const jsonMetadata = await fetchMetadataJson(uri);
+        imageUrl = jsonMetadata.image;
+        description = jsonMetadata.description;
+        console.log(`🖼️  Image URL: ${imageUrl || 'None'}`);
+      }
+
+      const result = {
+        name,
+        symbol,
+        imageUrl,
+        description,
+      };
+
+      // ✅ CACHE THE RESULT
+      setCachedToken2022Metadata(mintAddressStr, result);
+
+      return result;
+    })();
+
+    // ✅ REGISTER PENDING REQUEST (DEDUPLICATION)
+    setPendingToken2022Request(mintAddressStr, promise);
+
+    return promise;
   } catch (error) {
-    console.error('❌ Error fetching Token 2022 metadata for', mintAddress.toBase58(), error);
+    console.error(
+      '❌ Error fetching Token 2022 metadata for',
+      mintAddress.toBase58(),
+      error
+    );
     return {};
   }
 }
@@ -357,8 +472,11 @@ export function MeteoraPools() {
                 ? new PublicKey(baseMint)
                 : baseMint;
 
-              // ✅ FETCH TOKEN 2022 METADATA (including image)
-              const token2022Metadata = await fetchToken2022Metadata(connection, baseMintPubKey);
+              // ✅ FETCH TOKEN 2022 METADATA (WITH CACHING & DEDUPLICATION)
+              const token2022Metadata = await fetchToken2022Metadata(
+                connection,
+                baseMintPubKey
+              );
 
               const name = token2022Metadata.name || 'Unknown Token';
               const symbol = token2022Metadata.symbol || '???';
@@ -387,6 +505,11 @@ export function MeteoraPools() {
           .filter((p) => p !== null) as PoolInfo[];
 
         console.log('✅ Valid pools with metadata and images:', validPools.length);
+
+        // ✅ LOG CACHE STATS
+        const cacheStats = getCacheStats();
+        console.log('📊 Cache Statistics:', cacheStats);
+
         setPools(validPools);
       } catch (err) {
         console.error('Error fetching pools:', err);
@@ -415,9 +538,24 @@ export function MeteoraPools() {
       {loading && (
         <div className="text-center py-12">
           <div className="inline-block">
-            <svg className="animate-spin h-12 w-12 text-primary-500" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg
+              className="animate-spin h-12 w-12 text-primary-500"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
           </div>
           <p className="text-gray-400 mt-4">Loading tokens...</p>
@@ -450,6 +588,7 @@ export function MeteoraPools() {
                       fill
                       className="object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-lg"
                       priority={false}
+                      loading="lazy"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       onError={(e) => {
                         // Fallback if image fails to load
@@ -459,8 +598,18 @@ export function MeteoraPools() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-white/80">
-                    <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      className="w-12 h-12 mb-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                     <span className="text-xs font-semibold">No Image</span>
                   </div>
@@ -487,7 +636,9 @@ export function MeteoraPools() {
                 {/* Progress Bar */}
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-gray-400">Progress to DEX Migration</span>
+                    <span className="text-xs text-gray-400">
+                      Progress to DEX Migration
+                    </span>
                     <span className="text-sm font-semibold text-primary-400">
                       {pool.progress}%
                     </span>
