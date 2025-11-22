@@ -5,6 +5,7 @@
  */
 
 import { TokenMetadata } from '@/types/token';
+import bs58 from 'bs58';
 
 export interface ProjectLinks {
   x?: string;
@@ -42,6 +43,8 @@ function validateUrl(url: string): boolean {
  * @param metadata - Token metadata object
  * @param imageUri - IPFS URI of uploaded image (ipfs://QmHash format)
  * @param projectLinks - Optional project links (X, Telegram, Discord, Website)
+ * @param signMessage - Wallet's message signing function (REQUIRED for authentication)
+ * @param publicKey - Wallet's public key (base58 string) (REQUIRED for authentication)
  * @returns ipfs://metadataHash - Ready to use as token metadata URI
  *
  * @example
@@ -56,17 +59,26 @@ function validateUrl(url: string): boolean {
  *     x: "https://x.com/myproject",
  *     telegram: "https://t.me/myproject",
  *     website: "https://myproject.com"
- *   }
+ *   },
+ *   signMessage,
+ *   publicKey.toBase58()
  * );
  * // Returns: "ipfs://QmMetadataHash"
  */
 export async function uploadMetadataJson(
   metadata: Partial<TokenMetadata>,
   imageUri?: string,
-  projectLinks?: ProjectLinks
+  projectLinks?: ProjectLinks,
+  signMessage?: (message: Uint8Array) => Promise<Uint8Array>,
+  publicKey?: string
 ): Promise<string> {
   try {
     console.log('📝 Creating metadata JSON...');
+
+    // ✅ CRITICAL: Validate wallet authentication is provided
+    if (!signMessage || !publicKey) {
+      throw new Error('Wallet authentication required for metadata upload. Please ensure signMessage and publicKey are provided.');
+    }
 
     // Validate project links
     if (projectLinks) {
@@ -134,15 +146,26 @@ export async function uploadMetadataJson(
 
     console.log(`📦 Created File: metadata.json (${jsonFile.size} bytes)`);
 
-    // 6. Upload JSON file to IPFS via our API route
+    // 6. ✅ FIXED: Sign message with wallet and upload with authentication
     console.log('📤 Uploading metadata JSON to IPFS...');
 
+    // Create authentication message with timestamp
+    const message = `Moon Mint Metadata Upload|${Date.now()}`;
+    console.log('🔐 Signing authentication message...');
+
+    // Sign message with wallet
+    const messageBytes = new TextEncoder().encode(message);
+    const signatureBytes = await signMessage(messageBytes);
+    const signature = bs58.encode(signatureBytes);
+
+    console.log('✅ Message signed');
+
+    // Prepare form data with authentication
     const formData = new FormData();
     formData.append('file', jsonFile);
-    formData.append('message', `Moon Mint Metadata Upload|${Date.now()}`);
-    // For metadata, we'll send a dummy signature - the API accepts it
-    formData.append('signature', 'dummy');
-    formData.append('publicKey', 'dummy');
+    formData.append('message', message);
+    formData.append('signature', signature);
+    formData.append('publicKey', publicKey);
 
     const response = await fetch('/api/upload', {
       method: 'POST',

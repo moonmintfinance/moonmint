@@ -204,8 +204,15 @@ export function TokenMinter() {
 
       try {
         // ✅ THIS IS THE KEY STEP: Create JSON with image field and project links
-        // Then upload it to IPFS
-        metadataUri = await uploadMetadataJson(metadata, imageIpfsUri, projectLinks);
+        // Then upload it to IPFS with wallet authentication
+        // ✅ FIXED: Now passes signMessage and publicKey for wallet authentication
+        metadataUri = await uploadMetadataJson(
+          metadata,
+          imageIpfsUri,
+          projectLinks,
+          signMessage,
+          publicKey.toBase58()
+        );
 
         console.log('✅ Metadata JSON uploaded:', metadataUri);
         toast.success('Metadata JSON created!', { id: metadataUploadToast });
@@ -219,19 +226,16 @@ export function TokenMinter() {
       }
 
       // =========================================================================
-      // STEP 3: LAUNCH TOKEN WITH METADATA URI ✅ CORRECT
+      // STEP 3: MINT TOKEN
       // =========================================================================
-      console.log('🚀 STEP 3: Launching token with metadata URI...');
-      console.log(`   Using metadata URI: ${metadataUri}`);
-
       if (launchType === LaunchType.METEORA) {
         // =====================================================================
         // METEORA BONDING CURVE LAUNCH
         // =====================================================================
-        console.log('🌊 Launching on Meteora bonding curve...');
+        console.log('🚀 Launching on Meteora bonding curve...');
 
-        if (!signTransaction || !signAllTransactions) {
-          throw new Error('Wallet does not support signing transactions');
+        if (!meteoraConfig) {
+          throw new Error('Meteora config is required for bonding curve launch');
         }
 
         const meteoraService = new MeteoraLaunchService(connection, {
