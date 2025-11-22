@@ -5,6 +5,7 @@
  */
 
 import { TokenMetadata } from '@/types/token';
+import { validateSecureUrl } from '@/utils/security';
 import bs58 from 'bs58';
 
 export interface ProjectLinks {
@@ -55,16 +56,13 @@ function convertIpfsToGatewayUrl(imageUri: string): string {
 }
 
 /**
- * Validates URLs for project links
+ * Validates URLs for project links using security-hardened validation
+ * âœ… Prevents: XSS, SSRF, malicious schemes, suspicious domains
+ * âœ… Only allows: http:// and https:// URLs
  */
-function validateUrl(url: string): boolean {
-  if (!url) return true; // Optional field
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
+function validateUrl(url: string): { valid: boolean; error?: string } {
+  if (!url) return { valid: true }; // Optional field
+  return validateSecureUrl(url);
 }
 
 /**
@@ -110,19 +108,26 @@ export async function uploadMetadataJson(
       throw new Error('Wallet authentication required for metadata upload. Please ensure signMessage and publicKey are provided.');
     }
 
-    // Validate project links
+    // Validate project links with security-hardened validation
     if (projectLinks) {
-      if (projectLinks.x && !validateUrl(projectLinks.x)) {
-        throw new Error('Invalid X/Twitter URL');
+      const xValidation = validateUrl(projectLinks.x || '');
+      if (!xValidation.valid) {
+        throw new Error(`Invalid X/Twitter URL: ${xValidation.error}`);
       }
-      if (projectLinks.telegram && !validateUrl(projectLinks.telegram)) {
-        throw new Error('Invalid Telegram URL');
+
+      const telegramValidation = validateUrl(projectLinks.telegram || '');
+      if (!telegramValidation.valid) {
+        throw new Error(`Invalid Telegram URL: ${telegramValidation.error}`);
       }
-      if (projectLinks.discord && !validateUrl(projectLinks.discord)) {
-        throw new Error('Invalid Discord URL');
+
+      const discordValidation = validateUrl(projectLinks.discord || '');
+      if (!discordValidation.valid) {
+        throw new Error(`Invalid Discord URL: ${discordValidation.error}`);
       }
-      if (projectLinks.website && !validateUrl(projectLinks.website)) {
-        throw new Error('Invalid Website URL');
+
+      const websiteValidation = validateUrl(projectLinks.website || '');
+      if (!websiteValidation.valid) {
+        throw new Error(`Invalid Website URL: ${websiteValidation.error}`);
       }
     }
 
@@ -282,17 +287,24 @@ export function validateMetadataJson(
   }
 
   if (projectLinks) {
-    if (projectLinks.x && !validateUrl(projectLinks.x)) {
-      errors.push('Invalid X/Twitter URL');
+    const xValidation = validateUrl(projectLinks.x || '');
+    if (!xValidation.valid) {
+      errors.push(`Invalid X/Twitter URL: ${xValidation.error}`);
     }
-    if (projectLinks.telegram && !validateUrl(projectLinks.telegram)) {
-      errors.push('Invalid Telegram URL');
+
+    const telegramValidation = validateUrl(projectLinks.telegram || '');
+    if (!telegramValidation.valid) {
+      errors.push(`Invalid Telegram URL: ${telegramValidation.error}`);
     }
-    if (projectLinks.discord && !validateUrl(projectLinks.discord)) {
-      errors.push('Invalid Discord URL');
+
+    const discordValidation = validateUrl(projectLinks.discord || '');
+    if (!discordValidation.valid) {
+      errors.push(`Invalid Discord URL: ${discordValidation.error}`);
     }
-    if (projectLinks.website && !validateUrl(projectLinks.website)) {
-      errors.push('Invalid Website URL');
+
+    const websiteValidation = validateUrl(projectLinks.website || '');
+    if (!websiteValidation.valid) {
+      errors.push(`Invalid Website URL: ${websiteValidation.error}`);
     }
   }
 
