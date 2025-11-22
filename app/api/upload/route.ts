@@ -1,4 +1,4 @@
-// app/api/upload/route.ts
+// app/api/upload/route.ts (SECURE VERSION)
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
@@ -6,8 +6,11 @@ import bs58 from 'bs58';
 
 export const runtime = 'nodejs';
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_JSON_TYPES = ['application/json'];
+const ALLOWED_MIME_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_JSON_TYPES];
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_JSON_SIZE = 100 * 1024; // 100KB for JSON
 
 const MAGIC_NUMBERS: Record<string, number[]> = {
   'image/jpeg': [0xff, 0xd8, 0xff],
@@ -16,9 +19,106 @@ const MAGIC_NUMBERS: Record<string, number[]> = {
   'image/webp': [0x52, 0x49, 0x46, 0x46],
 };
 
+/**
+ * Validates metadata JSON structure and content
+ */
+function validateMetadataJson(jsonObj: any): { valid: boolean; error?: string } {
+  // Check required fields
+  if (!jsonObj.name || typeof jsonObj.name !== 'string') {
+    return { valid: false, error: 'Metadata must contain a valid "name" field' };
+  }
+
+  if (!jsonObj.symbol || typeof jsonObj.symbol !== 'string') {
+    return { valid: false, error: 'Metadata must contain a valid "symbol" field' };
+  }
+
+  // Validate string lengths
+  if (jsonObj.name.length > 200) {
+    return { valid: false, error: 'Name exceeds maximum length (200 characters)' };
+  }
+
+  if (jsonObj.symbol.length > 20) {
+    return { valid: false, error: 'Symbol exceeds maximum length (20 characters)' };
+  }
+
+  // Validate description if present
+  if (jsonObj.description && typeof jsonObj.description !== 'string') {
+    return { valid: false, error: 'Description must be a string' };
+  }
+
+  if (jsonObj.description && jsonObj.description.length > 1000) {
+    return { valid: false, error: 'Description exceeds maximum length (1000 characters)' };
+  }
+
+  // Validate image URI if present
+  if (jsonObj.image) {
+    if (typeof jsonObj.image !== 'string') {
+      return { valid: false, error: 'Image must be a string' };
+    }
+
+    const validImageUri = jsonObj.image.startsWith('ipfs://') ||
+                         jsonObj.image.startsWith('https://') ||
+                         jsonObj.image.startsWith('http://');
+
+    if (!validImageUri) {
+      return { valid: false, error: 'Image must be an IPFS or HTTP(S) URI' };
+    }
+
+    // Check for suspicious domains
+    if (jsonObj.image.includes('http')) {
+      try {
+        const url = new URL(jsonObj.image);
+        if (isSuspiciousDomain(url.hostname)) {
+          return { valid: false, error: 'Image URL contains suspicious domain' };
+        }
+      } catch (e) {
+        return { valid: false, error: 'Invalid image URL format' };
+      }
+    }
+  }
+
+  // Validate decimals if present
+  if (jsonObj.decimals !== undefined) {
+    if (typeof jsonObj.decimals !== 'number' || jsonObj.decimals < 0 || jsonObj.decimals > 18) {
+      return { valid: false, error: 'Decimals must be a number between 0 and 18' };
+    }
+  }
+
+  // Check for suspicious content patterns (basic XSS/injection detection)
+  const suspiciousPatterns = [
+    /<script/i,
+    /javascript:/i,
+    /on\w+\s*=/i, // onclick, onload, etc.
+    /eval\(/i,
+  ];
+
+  const allText = JSON.stringify(jsonObj);
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(allText)) {
+      return { valid: false, error: 'Metadata contains suspicious content patterns' };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Basic check for suspicious domains (phishing, malware, etc.)
+ */
+function isSuspiciousDomain(hostname: string): boolean {
+  const blocklist = [
+    'bit.ly', // Known shortener used in phishing
+    'tinyurl.com',
+    'goo.gl',
+    // Add more as needed
+  ];
+
+  return blocklist.some(domain => hostname.includes(domain));
+}
+
 async function validateImageFile(file: File): Promise<{ valid: boolean; error?: string }> {
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    return { valid: false, error: 'Invalid file type. Only JPEG, PNG, GIF, WebP allowed.' };
+    return { valid: false, error: 'Invalid file type. Only JPEG, PNG, GIF, WebP, or JSON allowed.' };
   }
 
   if (file.size > MAX_FILE_SIZE) {
@@ -29,6 +129,29 @@ async function validateImageFile(file: File): Promise<{ valid: boolean; error?: 
     return { valid: false, error: 'File is empty.' };
   }
 
+  // JSON-specific validation
+  if (ALLOWED_JSON_TYPES.includes(file.type)) {
+    if (file.size > MAX_JSON_SIZE) {
+      return { valid: false, error: 'JSON file too large. Maximum 100KB.' };
+    }
+
+    try {
+      const jsonText = await file.text();
+      const jsonObj = JSON.parse(jsonText);
+
+      // Validate metadata structure
+      const validation = validateMetadataJson(jsonObj);
+      if (!validation.valid) {
+        return validation;
+      }
+
+      return { valid: true };
+    } catch (error) {
+      return { valid: false, error: 'Invalid JSON format' };
+    }
+  }
+
+  // Image validation with magic numbers
   try {
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
@@ -107,7 +230,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`📥 File: ${file.name} (${file.size} bytes)`);
-    console.log(`🔐 Wallet: ${publicKey.slice(0, 8)}...${publicKey.slice(-8)}`);
+    console.log(`🔑 Wallet: ${publicKey.slice(0, 8)}...${publicKey.slice(-8)}`);
 
     // Verify signature
     const isValidSignature = verifyWalletSignature(message, signature, publicKey);
@@ -187,13 +310,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Use dedicated gateway for the returned URL
-    // Falls back to public gateway if env var is missing, but prioritized the dedicated one
+    // Falls back to public gateway if env var is missing
     const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
     const url = `${gateway}/ipfs/${pinataData.IpfsHash}`;
 
     console.log(`✅ Upload successful: ${url}\n`);
 
-    return NextResponse.json({ url });
+    // ✅ UPDATED: Return both url AND IpfsHash for metadata service
+    return NextResponse.json({
+      url,
+      IpfsHash: pinataData.IpfsHash
+    });
   } catch (error) {
     console.error('❌ Upload failed:', error);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });

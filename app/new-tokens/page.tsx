@@ -2,7 +2,7 @@
 
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { MeteoraPools } from '@/components/MeteoraPools';
+import MeteoraPools from '@/components/MeteoraPools';
 
 export default function NewTokensPage() {
   return (

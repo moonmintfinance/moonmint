@@ -7,15 +7,10 @@ import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk
 import Image from 'next/image';
 import { SOLANA_RPC_ENDPOINT, METEORA_CONFIG } from '@/lib/constants';
 import {
-  getCachedMetadataJson,
-  setCachedMetadataJson,
-  getPendingMetadataJsonRequest,
-  setPendingMetadataJsonRequest,
   getCachedToken2022Metadata,
   setCachedToken2022Metadata,
   getPendingToken2022Request,
   setPendingToken2022Request,
-  getCacheStats,
 } from '@/lib/metadataCache';
 
 interface PoolInfo {
@@ -28,689 +23,440 @@ interface PoolInfo {
   imageUrl?: string;
 }
 
-// Dedicated Gateway from Environment
+interface PaginationState {
+  currentPage: number;
+  itemsPerPage: number;
+  totalItems: number;
+}
+
+type Token2022MetadataResult = {
+  name?: string;
+  symbol?: string;
+  decimals?: number;
+  imageUrl?: string;
+};
+
+// Dedicated Gateway from Environment - Ensure this is set in .env.local
 const DEDICATED_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
 
-// IPFS Gateway priorities (fallback list)
+// IPFS Gateways - Ordered by reliability/speed
 const IPFS_GATEWAYS = [
-  // ✅ Prioritize dedicated gateway if available
-  ...(DEDICATED_GATEWAY ? [`${DEDICATED_GATEWAY}/ipfs`] : []),
+  '/api/ipfs',  // ← Use server proxy with Gateway Key
   'https://gateway.pinata.cloud/ipfs',
   'https://ipfs.io/ipfs',
-  'https://gateway.ipfs.io/ipfs',
-  'https://nft.storage/ipfs',
-  'https://w3s.link/ipfs',
+  'https://cloudflare-ipfs.com/ipfs',
+  'https://dweb.link/ipfs',
 ];
 
-// ✅ MAX_FALLBACK_ATTEMPTS set to 2 (instead of trying all 6)
-const MAX_FALLBACK_ATTEMPTS = 2;
-
 /**
- * Converts IPFS URI to HTTP gateway URL
- * Handles ipfs://, /ipfs/, and direct HTTP URLs (including custom Pinata gateways)
- *
- * ✅ CRITICAL FIX: Preserves original HTTP gateway URLs
- * This ensures content on specific gateways is fetched from the correct source
- * Only normalizes non-HTTP IPFS formats to your primary gateway
- * Fallback logic handles missing content on custom gateways
+ * Converts IPFS URI to HTTP gateway URL using the best available gateway
  */
-function convertIpfsToHttp(uri: string): string {
+function convertIpfsToHttp(uri: string, gatewayIndex = 0): string {
   if (!uri) return '';
-
-  // ✅ If already HTTP URL, preserve it as-is
-  // This respects the original gateway where content was uploaded
-  // Examples: gateway.pinata.cloud, indigo-historic-lark-315.mypinata.cloud, ipfs.io, etc.
-  if (uri.startsWith('http://') || uri.startsWith('https://')) {
-    return uri; // ✅ Use original gateway, don't normalize
-  }
 
   let hash = '';
 
-  // Extract hash from ipfs:// or /ipfs/ format
+  // Extract hash from various IPFS formats
   if (uri.startsWith('ipfs://')) {
     hash = uri.replace('ipfs://', '');
-  } else if (uri.startsWith('/ipfs/')) {
-    hash = uri.replace('/ipfs/', '');
+  } else if (uri.includes('/ipfs/')) {
+    const parts = uri.split('/ipfs/');
+    if (parts.length > 1) {
+      hash = parts[1];
+    }
   } else {
-    // Unknown format, assume it's a raw hash
-    hash = uri;
+    // Assume it's a hash if it's not http
+    if (!uri.startsWith('http')) {
+      hash = uri;
+    }
   }
 
-  // ✅ Only normalize IPFS hashes to primary gateway
-  // (not HTTP URLs which may be on different gateways)
-  const gateway = IPFS_GATEWAYS[0];
-  return `${gateway}/${hash}`;
+  // If we found a hash, use the specified gateway
+  if (hash) {
+    // Clean hash (remove query params)
+    hash = hash.split('?')[0];
+    const gateway = IPFS_GATEWAYS[gatewayIndex % IPFS_GATEWAYS.length];
+    return `${gateway}/${hash}`;
+  }
+
+  // Return original if not an IPFS hash (e.g. standard HTTP URL)
+  return uri;
 }
 
 /**
- * Fetches JSON metadata from a URI with IPFS support
- * ✅ WITH CACHING & DEDUPLICATION
- * ✅ LIMITED TO 2 FALLBACK GATEWAY ATTEMPTS
- * ✅ LAZY LOADING SUPPORT
- *
- * Some tokens store: uri = JSON metadata file (contains "image" field)
- * Other tokens store: uri = Direct image URL (the URI IS the image)
+ * Fetches the actual image URL from Token 2022 metadata
+ * Handles both direct image URLs and metadata JSON URIs
+ * ✅ FIXED: Properly extracts image from metadata JSON instead of returning JSON URI
  */
-async function fetchMetadataJson(
-  uri: string | undefined
-): Promise<{ image?: string; description?: string }> {
+async function extractImageUrl(metadata: any): Promise<string | undefined> {
   try {
-    if (!uri || typeof uri !== 'string') {
-      return {};
+    // ✅ Option 1: Direct image URL from DAS API
+    if (metadata.content?.links?.image) {
+      console.log('📸 Found direct image URL in DAS');
+      return convertIpfsToHttp(metadata.content.links.image);
     }
 
-    // ✅ CHECK CACHE FIRST
-    const cachedMetadata = getCachedMetadataJson(uri);
-    if (cachedMetadata) {
-      return cachedMetadata;
-    }
+    // ✅ Option 2: Fetch metadata JSON and extract image field
+    if (metadata.content?.json_uri) {
+      const jsonUri = metadata.content.json_uri;
+      const jsonUrl = convertIpfsToHttp(jsonUri);
 
-    // ✅ CHECK IF ALREADY PENDING (DEDUPLICATION)
-    const pendingRequest = getPendingMetadataJsonRequest(uri);
-    if (pendingRequest) {
-      console.log(
-        `⏳ [Dedup] Already fetching metadata for ${uri.substring(0, 20)}...`
-      );
-      return pendingRequest;
-    }
-
-    console.log(`📥 Fetching metadata from: ${uri}`);
-
-    // Convert IPFS URI to HTTP
-    const httpUrl = convertIpfsToHttp(uri);
-    console.log(`🔗 Using URL: ${httpUrl}`);
-
-    // Create the promise for this request
-    const promise = (async () => {
-      // Try primary gateway
+      console.log(`📄 Fetching metadata JSON from: ${jsonUrl}`);
       try {
-        console.log(`⏳ Attempting fetch with 5s timeout...`);
-        const response = await fetch(httpUrl, {
-          method: 'GET',
-          signal: AbortSignal.timeout(5000), // 5 second timeout
-        });
+        const metadataResponse = await fetch(jsonUrl);
+        if (!metadataResponse.ok) {
+          console.warn(`⚠️ Failed to fetch metadata JSON: ${metadataResponse.status}`);
+          return undefined;
+        }
 
-        console.log(
-          `📊 Response status: ${response.status} ${response.statusText}`
-        );
-        console.log(`📋 Content-Type: ${response.headers.get('content-type')}`);
+        const metadataJson = await metadataResponse.json();
 
-        if (response.ok) {
-          const contentType = response.headers.get('content-type') || '';
-
-          // ✅ FIXED: Check if response is an image (not JSON)
-          if (contentType.includes('image/')) {
-            console.log(
-              `🖼️  Response is a direct image! Using URI as image URL.`
-            );
-            const result = {
-              image: httpUrl,
-              description: undefined,
-            };
-            setCachedMetadataJson(uri, result);
-            return result;
-          }
-
-          // Otherwise, try to parse as JSON
-          try {
-            const data = await response.json();
-            console.log(`✅ Fetched metadata JSON:`, data);
-
-            // Convert image URL if it's IPFS
-            let imageUrl = data.image;
-            if (imageUrl) {
-              console.log(`🖼️  Found image in metadata:`, imageUrl);
-              imageUrl = convertIpfsToHttp(imageUrl);
-              console.log(`🔗 Converted image URL:`, imageUrl);
-            } else {
-              console.log(`⚠️  No image field in metadata JSON`);
-            }
-
-            const result = {
-              image: imageUrl || undefined,
-              description: data.description || undefined,
-            };
-            setCachedMetadataJson(uri, result);
-            return result;
-          } catch (parseErr) {
-            console.error(`❌ Failed to parse JSON response:`, parseErr);
-
-            // ✅ Last resort: if it looks like an image, try using the URL directly
-            if (uri.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i)) {
-              console.log(`🖼️  URI has image extension, using as image URL`);
-              const result = {
-                image: httpUrl,
-                description: undefined,
-              };
-              setCachedMetadataJson(uri, result);
-              return result;
-            }
-
-            try {
-              const text = await response.text();
-              console.log(
-                `📋 Raw response (first 300 chars):`,
-                text.substring(0, 300)
-              );
-            } catch (e) {
-              console.log(`(Could not read response body)`);
-            }
-          }
-        } else {
-          console.warn(
-            `❌ HTTP Error ${response.status}: ${response.statusText}`
-          );
+        // Extract image from metadata JSON
+        if (metadataJson.image) {
+          console.log('🖼️ Found image URL in metadata JSON');
+          return convertIpfsToHttp(metadataJson.image);
         }
       } catch (err) {
-        console.warn(
-          `⚠️  Primary gateway failed:`,
-          err instanceof Error ? err.message : String(err)
-        );
-        console.warn(
-          `⏫ Trying alternative gateways (max ${MAX_FALLBACK_ATTEMPTS})...`
-        );
-
-        // ✅ FIXED: Extract hash from ANY URI format (including HTTP URLs with /ipfs/)
-        let hash = '';
-        if (uri.startsWith('ipfs://')) {
-          hash = uri.replace('ipfs://', '');
-        } else if (uri.startsWith('/ipfs/')) {
-          hash = uri.replace('/ipfs/', '');
-        } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
-          // Extract from HTTP URLs like: https://indigo-historic-lark-315.mypinata.cloud/ipfs/{hash}
-          const match = uri.match(/\/ipfs\/([a-zA-Z0-9]+)/);
-          if (match) {
-            hash = match[1];
-          }
-        }
-
-        // ✅ TRY ALTERNATIVE GATEWAYS (if we extracted a hash)
-        if (hash) {
-          console.log(`🔍 Extracted IPFS hash: ${hash}`);
-
-          // ✅ ONLY TRY 2 FALLBACK GATEWAYS (INSTEAD OF ALL 6)
-          for (let i = 1; i <= MAX_FALLBACK_ATTEMPTS && i < IPFS_GATEWAYS.length; i++) {
-            const gateway = IPFS_GATEWAYS[i];
-            try {
-              const altUrl = `${gateway}/${hash}`;
-              console.log(`🔄 Trying gateway ${i}/${MAX_FALLBACK_ATTEMPTS}: ${gateway}`);
-
-              const response = await fetch(altUrl, {
-                method: 'GET',
-                signal: AbortSignal.timeout(3000),
-              });
-
-              console.log(`📊 Gateway ${i} response: ${response.status}`);
-
-              if (response.ok) {
-                const contentType = response.headers.get('content-type') || '';
-
-                // ✅ Check if it's an image
-                if (contentType.includes('image/')) {
-                  console.log(`✅ Gateway ${i} returned image! Using as image URL.`);
-                  const result = {
-                    image: altUrl,
-                    description: undefined,
-                  };
-                  setCachedMetadataJson(uri, result);
-                  return result;
-                }
-
-                try {
-                  const data = await response.json();
-                  console.log(`✅ Success with gateway ${i}!`, data);
-
-                  let imageUrl = data.image;
-                  if (imageUrl) {
-                    imageUrl = convertIpfsToHttp(imageUrl);
-                  }
-                  const result = {
-                    image: imageUrl || undefined,
-                    description: data.description || undefined,
-                  };
-                  setCachedMetadataJson(uri, result);
-                  return result;
-                } catch (parseErr) {
-                  console.warn(`⚠️  Gateway ${i} returned invalid JSON`);
-
-                  // ✅ If it's an image by extension, use it
-                  if (hash.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
-                    console.log(
-                      `🖼️  Hash has image extension, using gateway URL as image`
-                    );
-                    const result = {
-                      image: altUrl,
-                      description: undefined,
-                    };
-                    setCachedMetadataJson(uri, result);
-                    return result;
-                  }
-                }
-              }
-            } catch (e) {
-              console.log(
-                `⚠️  Gateway ${i} failed:`,
-                e instanceof Error ? e.message : String(e)
-              );
-              continue; // Try next gateway
-            }
-          }
-          console.error(
-            `❌ All gateways failed for hash: ${hash} (tried ${Math.min(MAX_FALLBACK_ATTEMPTS, IPFS_GATEWAYS.length - 1)} fallbacks)`
-          );
-        }
+        console.warn(`⚠️ Failed to parse metadata JSON:`, err);
+        return undefined;
       }
+    }
 
-      // ✅ CACHE THE NEGATIVE RESULT (no image found)
-      const emptyResult = {};
-      setCachedMetadataJson(uri, emptyResult);
-      console.log(`📋 [No Image] Cached empty result for ${uri.substring(0, 20)}...`);
-      return emptyResult;
-    })();
-
-    // ✅ REGISTER PENDING REQUEST (DEDUPLICATION)
-    setPendingMetadataJsonRequest(uri, promise);
-
-    return promise;
-  } catch (error) {
-    console.error(`❌ Unexpected error in fetchMetadataJson:`, error);
-    return {};
+    return undefined;
+  } catch (err) {
+    console.warn(`⚠️ Error extracting image URL:`, err);
+    return undefined;
   }
 }
 
 /**
- * Fetches Token 2022 metadata directly from the blockchain
- * ✅ WITH CACHING & DEDUPLICATION
- *
- * Metadata structure:
- * {
- * mint: PublicKey,
- * updateAuthority: PublicKey,
- * data: {
- * name: string,
- * symbol: string,
- * uri: string,
- * ...
- * }
- * }
+ * Fetches Token Metadata using DAS API
+ * ✅ FIXED: Now properly extracts image URLs from metadata JSON
  */
-async function fetchToken2022Metadata(
-  connection: Connection,
-  mintAddress: PublicKey
-): Promise<{
-  name?: string;
-  symbol?: string;
-  imageUrl?: string;
-  description?: string;
-}> {
-  const mintAddressStr = mintAddress.toBase58();
+async function fetchTokenMetadataDAS(
+  mintAddress: string
+): Promise<Token2022MetadataResult> {
+  const defaultResult: Token2022MetadataResult = {
+    name: 'Unknown Token',
+    symbol: '???',
+    decimals: 0,
+  };
 
-  try {
-    // ✅ CHECK CACHE FIRST
-    const cachedMetadata = getCachedToken2022Metadata(mintAddressStr);
-    if (cachedMetadata) {
-      return cachedMetadata;
-    }
+  const cachedData = getCachedToken2022Metadata(mintAddress);
+  if (cachedData) {
+    return { ...cachedData, decimals: 0 };
+  }
 
-    // ✅ CHECK IF ALREADY PENDING (DEDUPLICATION)
-    const pendingRequest = getPendingToken2022Request(mintAddressStr);
-    if (pendingRequest) {
-      console.log(
-        `⏳ [Dedup] Already fetching Token 2022 metadata for ${mintAddressStr.substring(0, 8)}...`
-      );
-      return pendingRequest;
-    }
+  const pendingRequest = getPendingToken2022Request(mintAddress);
+  if (pendingRequest) return pendingRequest;
 
-    // Create the promise for this request
-    const promise = (async () => {
-      // 1. Get the mint account to check for MetadataPointer extension
-      const mintAccount = await getMint(
-        connection,
-        mintAddress,
-        'confirmed',
-        TOKEN_2022_PROGRAM_ID
-      );
+  const promise: Promise<Token2022MetadataResult> = (async () => {
+    try {
+      const response = await fetch(SOLANA_RPC_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'moon-mint-asset-check',
+          method: 'getAsset',
+          params: {
+            id: mintAddress,
+            displayOptions: {
+              showFungible: true,
+              showNativeBalance: false,
+            },
+          },
+        }),
+      });
 
-      // 2. Get the metadata pointer state
-      const metadataPointer = getMetadataPointerState(mintAccount);
+      const { result } = await response.json();
 
-      if (!metadataPointer?.metadataAddress) {
-        console.debug(
-          '⚠️  No metadata pointer found for mint:',
-          mintAddress.toBase58()
-        );
-        const emptyResult = {};
-        setCachedToken2022Metadata(mintAddressStr, emptyResult);
-        return emptyResult;
+      if (!result) {
+        return defaultResult;
       }
 
-      // 3. Fetch the actual Token 2022 metadata
-      const metadata = await getTokenMetadata(
-        connection,
-        metadataPointer.metadataAddress,
-        'confirmed',
-        TOKEN_2022_PROGRAM_ID
-      );
+      const name = result.content?.metadata?.name || result.token_info?.symbol || 'Unknown Token';
+      const symbol = result.content?.metadata?.symbol || result.token_info?.symbol || '???';
+      const decimals = result.token_info?.decimals || 0;
 
-      if (!metadata) {
-        const emptyResult = {};
-        setCachedToken2022Metadata(mintAddressStr, emptyResult);
-        return emptyResult;
-      }
+      // ✅ FIXED: Properly extract image URL from metadata or JSON
+      const imageUrl = await extractImageUrl(result);
 
-      console.debug('📋 Raw metadata:', metadata);
-
-      // ✅ FIXED: Handle nested data structure
-      const name = (metadata as any)?.data?.name || (metadata as any)?.name;
-      const symbol = (metadata as any)?.data?.symbol || (metadata as any)?.symbol;
-      const uri = (metadata as any)?.data?.uri || (metadata as any)?.uri;
-
-      console.debug(`🏷️  Found - Name: ${name}, Symbol: ${symbol}, URI: ${uri}`);
-
-      // 4. If there's a URI, fetch the JSON metadata to get the image
-      let imageUrl: string | undefined;
-      let description: string | undefined;
-
-      if (uri) {
-        const jsonMetadata = await fetchMetadataJson(uri);
-        imageUrl = jsonMetadata.image;
-        description = jsonMetadata.description;
-        console.log(`🖼️  Image URL: ${imageUrl || 'None'}`);
-      }
-
-      const result = {
+      const metadataResult: Token2022MetadataResult = {
         name,
         symbol,
+        decimals,
         imageUrl,
-        description,
       };
 
-      // ✅ CACHE THE RESULT
-      setCachedToken2022Metadata(mintAddressStr, result);
+      setCachedToken2022Metadata(mintAddress, metadataResult);
+      return metadataResult;
 
-      return result;
-    })();
+    } catch (err) {
+      console.error(`❌ DAS API Error for ${mintAddress}:`, err);
+      return defaultResult;
+    }
+  })();
 
-    // ✅ REGISTER PENDING REQUEST (DEDUPLICATION)
-    setPendingToken2022Request(mintAddressStr, promise);
-
-    return promise;
-  } catch (error) {
-    console.error(
-      '❌ Error fetching Token 2022 metadata for',
-      mintAddress.toBase58(),
-      error
-    );
-    return {};
-  }
+  setPendingToken2022Request(mintAddress, promise);
+  return promise;
 }
 
-export function MeteoraPools() {
+export default function MeteoraPools() {
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationState>({
+    currentPage: 1,
+    itemsPerPage: 9,
+    totalItems: 0,
+  });
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPools = async () => {
       try {
-        if (!METEORA_CONFIG.ENABLED || !METEORA_CONFIG.CONFIG_KEY) {
-          setError('Meteora config not configured');
-          return;
-        }
-
-        // Convert relative RPC path to absolute URL
-        let endpoint = SOLANA_RPC_ENDPOINT;
-        if (endpoint.startsWith('/')) {
-          const origin = typeof window !== 'undefined'
-            ? window.location.origin
-            : 'http://localhost:3000';
-          endpoint = `${origin}${endpoint}`;
-        }
-
-        const connection = new Connection(endpoint);
+        const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
         const client = new DynamicBondingCurveClient(connection, null as any);
 
-        // Fetch only pools created with YOUR config key
+        console.log('🔍 Fetching Meteora virtual pools...');
         const configKey = new PublicKey(METEORA_CONFIG.CONFIG_KEY);
-        const allPools = await client.state.getPoolsByConfig(configKey);
+        const virtualPools = await client.state.getPoolsByConfig(configKey);
 
-        console.log('✅ Got pools from SDK. Count:', allPools.length);
+        if (!isMounted) return;
 
-        // Get Token 2022 metadata (including images) for each pool
+        // Type the promise return explicitly
         const poolsWithInfo = await Promise.all(
-          allPools.map(async (poolItem) => {
+          virtualPools.map(async (poolItem: any): Promise<PoolInfo | null> => {
             try {
-              const poolAddress = (poolItem as any).publicKey as string | PublicKey;
-              const pool = (poolItem as any).account as any;
+              const poolAddress = (poolItem as any).publicKey;
+              const pool = (poolItem as any).account;
 
-              if (!poolAddress || !pool) {
-                console.warn('Invalid pool structure - missing address or account');
-                return null;
+              if (!poolAddress || !pool) return null;
+
+              const poolPubKey = new PublicKey(poolAddress);
+              const baseMint = pool.baseMint;
+              const baseMintKey = typeof baseMint === 'string' ? new PublicKey(baseMint) : baseMint;
+
+              // Get progress (non-blocking if possible, or fast)
+              // We can default to 0 if this call fails to speed up loading
+              let progress = 0;
+              try {
+                 progress = await client.state.getPoolCurveProgress(poolPubKey);
+              } catch (e) {
+                 console.warn("Failed to fetch progress", e);
               }
 
-              const poolPubKey = typeof poolAddress === 'string'
-                ? new PublicKey(poolAddress)
-                : poolAddress;
+              // Use DAS API to get metadata efficiently
+              const tokenMetadata = await fetchTokenMetadataDAS(baseMintKey.toBase58());
 
-              // Get pool progress
-              const progress = await client.state.getPoolCurveProgress(poolPubKey);
-
-              // Extract baseMint
-              const baseMint = pool.baseMint;
-              const baseMintPubKey = typeof baseMint === 'string'
-                ? new PublicKey(baseMint)
-                : baseMint;
-
-              // ✅ FETCH TOKEN 2022 METADATA (WITH CACHING & DEDUPLICATION)
-              const token2022Metadata = await fetchToken2022Metadata(
-                connection,
-                baseMintPubKey
-              );
-
-              const name = token2022Metadata.name || 'Unknown Token';
-              const symbol = token2022Metadata.symbol || '???';
-              const imageUrl = token2022Metadata.imageUrl;
-
-              const creator = pool.creator;
-
-              return {
-                address: poolPubKey.toBase58?.() || String(poolAddress),
-                baseMint: typeof baseMint === 'string' ? baseMint : baseMint?.toBase58?.() || String(baseMint),
-                creator: typeof creator === 'string' ? creator : creator?.toBase58?.() || String(creator),
-                name,
-                symbol,
-                imageUrl,
+              const info: PoolInfo = {
+                address: poolPubKey.toBase58(),
+                baseMint: baseMintKey.toBase58(),
+                creator: pool.creator.toBase58(),
+                name: tokenMetadata.name,
+                symbol: tokenMetadata.symbol,
+                imageUrl: tokenMetadata.imageUrl,
                 progress: Math.round(progress * 100),
               };
+
+              return info;
             } catch (err) {
-              console.error('Error fetching pool info:', err);
+              console.error('Error processing pool:', err);
               return null;
             }
           })
         );
 
-        // Filter out failed fetches
-        const validPools = poolsWithInfo
-          .filter((p) => p !== null) as PoolInfo[];
+        if (!isMounted) return;
 
-        console.log('✅ Valid pools with metadata and images:', validPools.length);
-
-        // ✅ LOG CACHE STATS
-        const cacheStats = getCacheStats();
-        console.log('📊 Cache Statistics:', cacheStats);
-
+        const validPools = poolsWithInfo.filter((p): p is PoolInfo => p !== null);
         setPools(validPools);
+        setPagination((prev) => ({
+          ...prev,
+          totalItems: validPools.length,
+          currentPage: 1,
+        }));
       } catch (err) {
         console.error('Error fetching pools:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch pools');
+        if (isMounted) setError('Failed to fetch pools');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    void fetchPools();
+    fetchPools();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // Pagination logic
+  const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
+  const endIndex = startIndex + pagination.itemsPerPage;
+  const paginatedPools = pools.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(pagination.totalItems / pagination.itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setPagination((prev) => ({ ...prev, currentPage: page }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="flex-grow container mx-auto px-6 pt-24 pb-20 max-w-6xl">
-      {/* Header */}
       <div className="mb-12 text-center">
-        <h1 className="text-4xl font-bold text-white mb-4">
-          Recently Launched Tokens
-        </h1>
-        <p className="text-gray-400">
-          Discover tokens launched on Moon Mint bonding curves
-        </p>
+        <h1 className="text-4xl font-bold text-white mb-4">Recently Launched Tokens</h1>
+        <p className="text-gray-400">Discover tokens launched on Moon Mint bonding curves</p>
+        {!loading && !error && pools.length > 0 && (
+          <p className="text-sm text-gray-500 mt-2">
+            Showing {startIndex + 1}-{Math.min(endIndex, pagination.totalItems)} of {pagination.totalItems} tokens
+          </p>
+        )}
       </div>
 
-      {/* Loading State */}
       {loading && (
         <div className="text-center py-12">
           <div className="inline-block">
-            <svg
-              className="animate-spin h-12 w-12 text-primary-500"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
+            <svg className="animate-spin h-12 w-12 text-primary-500" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
           <p className="text-gray-400 mt-4">Loading tokens...</p>
         </div>
       )}
 
-      {/* Error State */}
       {error && !loading && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 text-center">
           <p className="text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Pools Grid */}
-      {!loading && !error && pools.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pools.map((pool) => (
-            <a
-              key={pool.address}
-              href={`/pools/${pool.baseMint}`}
-              className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 group flex flex-col"
-            >
-              {/* Token Image - ANIMATED GRADIENT BACKGROUND */}
-              <div className="relative w-full aspect-video animate-gradient-bg overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0">
-                {pool.imageUrl ? (
-                  <div className="relative w-full h-full">
-                    <Image
-                      src={pool.imageUrl}
-                      alt={pool.name || 'Token'}
-                      fill
-                      className="object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-lg"
-                      priority={false}
-                      loading="lazy"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      onError={(e) => {
-                        // Fallback if image fails to load
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-white/80">
-                    <svg
-                      className="w-12 h-12 mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+      {!loading && !error && paginatedPools.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {paginatedPools.map((pool) => (
+              <a
+                key={pool.address}
+                href={`/pools/${pool.baseMint}`}
+                className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 group flex flex-col"
+              >
+                <div className="relative w-full aspect-video animate-gradient-bg overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0 bg-dark-100">
+                  {pool.imageUrl ? (
+                    <div className="relative w-full h-full">
+                      {/* Use unoptimized to bypass Next.js strict domain checks for external images */}
+                      <Image
+                        src={pool.imageUrl}
+                        alt={pool.name || 'Token'}
+                        fill
+                        className="object-contain p-4 group-hover:scale-105 transition-transform duration-300 drop-shadow-lg"
+                        priority={false}
+                        unoptimized={true}
+                        onError={(e) => {
+                          // Try fallback gateway if primary fails (401/404)
+                          const target = e.currentTarget;
+                          const src = target.src;
+
+                          // Simple retry mechanism for the next gateway
+                          // This is client-side retry
+                          let nextGateway = IPFS_GATEWAYS[1]; // Try first public gateway
+                          if (src.includes(DEDICATED_GATEWAY || '')) {
+                             const hash = src.split('/').pop();
+                             if (hash) {
+                               target.src = `${nextGateway}/${hash}`;
+                               return;
+                             }
+                          }
+
+                          // If already retried or failed, hide
+                          target.style.display = 'none';
+                        }}
                       />
-                    </svg>
-                    <span className="text-xs font-semibold">No Image</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Token Content */}
-              <div className="p-6 flex-1 flex flex-col justify-between">
-                {/* Token Header */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-bold text-white truncate">
-                      {pool.name}
-                    </h3>
-                    <span className="bg-primary-500/20 text-primary-400 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ml-2">
-                      {pool.symbol}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 font-mono truncate">
-                    {pool.baseMint}
-                  </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-white/50">
+                      <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-semibold">No Image</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Progress Bar */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-gray-400">
-                      Progress to DEX Migration
-                    </span>
-                    <span className="text-sm font-semibold text-primary-400">
-                      {pool.progress}%
-                    </span>
+                <div className="p-6 flex-1 flex flex-col justify-between">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-bold text-white truncate">{pool.name}</h3>
+                      <span className="bg-primary-500/20 text-primary-400 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ml-2">
+                        {pool.symbol}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 font-mono truncate">
+                      Mint: {pool.baseMint.slice(0, 4)}...{pool.baseMint.slice(-4)}
+                    </p>
                   </div>
-                  <div className="w-full bg-dark-50 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-primary-500 to-primary-400 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${pool.progress}%` }}
-                    ></div>
+
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-gray-400">Progress to DEX Migration</span>
+                      <span className="text-sm font-semibold text-primary-400">{pool.progress}%</span>
+                    </div>
+                    <div className="w-full bg-dark-50 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-primary-500 to-primary-400 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${pool.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-dark-200">
+                    <button className="w-full text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors text-center">
+                      Trade Now →
+                    </button>
                   </div>
                 </div>
+              </a>
+            ))}
+          </div>
 
-                {/* Creator */}
-                <div className="text-xs text-gray-400 mb-4">
-                  <span>Creator: </span>
-                  <span className="font-mono">
-                    {pool.creator.slice(0, 8)}...{pool.creator.slice(-8)}
-                  </span>
-                </div>
-
-                {/* CTA */}
-                <div className="pt-4 border-t border-dark-200">
-                  <button className="w-full text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors">
-                    Trade Now →
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+              <button
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1}
+                className="px-4 py-2 rounded-lg border border-dark-200 text-gray-400 hover:text-white hover:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Previous
+              </button>
+              <div className="flex items-center gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                      pagination.currentPage === page
+                        ? 'bg-primary-500 text-white'
+                        : 'border border-dark-200 text-gray-400 hover:text-white hover:border-primary-500'
+                    }`}
+                  >
+                    {page}
                   </button>
-                </div>
+                ))}
               </div>
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && !error && pools.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-400 mb-4">No tokens launched yet</p>
-          <a
-            href="/#mint"
-            className="inline-block bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-8 rounded-lg transition-colors"
-          >
-            Be the First to Launch
-          </a>
-        </div>
+              <button
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+                disabled={pagination.currentPage === totalPages}
+                className="px-4 py-2 rounded-lg border border-dark-200 text-gray-400 hover:text-white hover:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -7,6 +7,7 @@
  *
  * FIX: Uses pack() function for accurate metadata size calculation
  * FIX: Uses setAuthority instructions AFTER minting to revoke authorities
+ * FIX: Uses metadataUri (JSON metadata) instead of imageUrl in token URI field
  *
  * Fee Structure:
  * - Base fee: 0.08 SOL (45% to platform, 55% to referrer if applicable)
@@ -141,7 +142,7 @@ export class AtomicToken2022MintService {
    *
    * @param payer - The wallet that will pay for the transaction
    * @param mintKeypair - Keypair for the new mint
-   * @param metadata - Token metadata (name, symbol, decimals, supply, uri)
+   * @param metadata - Token metadata (name, symbol, decimals, supply, metadataUri)
    * @param config - Mint configuration (authorities)
    * @returns Transaction ready to be signed
    */
@@ -172,11 +173,12 @@ export class AtomicToken2022MintService {
 
       // CRITICAL FIX: Use pack() to get accurate metadata size
       // Create the TokenMetadata object that will be stored
+      // ✅ FIXED: Use metadataUri (JSON metadata) instead of imageUrl
       const tokenMetadata: TokenMetadata = {
         mint: mint,
         name: metadata.name,
         symbol: metadata.symbol,
-        uri: metadata.imageUrl || '',
+        uri: metadata.metadataUri || metadata.imageUrl || '', // ✅ Use metadataUri first, fallback to imageUrl for backward compatibility
         additionalMetadata: [],
       };
 
@@ -257,13 +259,13 @@ export class AtomicToken2022MintService {
           'SOL'
         );
         console.log(
-          '   Referrer (55%):',
+          '   Referrer (30%):',
           (feeBreakdown.referrerEarnings / LAMPORTS_PER_SOL).toFixed(4),
           'SOL'
         );
       }
 
-      // Build atomic transaction with correct instruction order
+      // Build transaction using private method
       const transaction = await this.buildAtomicMintTransaction(
         payer,
         mint,
@@ -273,22 +275,6 @@ export class AtomicToken2022MintService {
         metadata,
         config,
         totalServiceFee
-      );
-
-      // Add recent blockhash
-      const { blockhash } = await this.connection.getLatestBlockhash(
-        TRANSACTION_CONFIG.COMMITMENT
-      );
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = payer;
-
-      // Partial sign with mint keypair
-      transaction.partialSign(mintKeypair);
-
-      console.log(
-        '📝 Transaction built with',
-        transaction.instructions.length,
-        'instructions'
       );
 
       return transaction;
@@ -408,8 +394,9 @@ export class AtomicToken2022MintService {
     );
 
     // Step 6: Initialize Metadata
+    // ✅ CRITICAL FIX: Use metadataUri (JSON metadata) instead of imageUrl
     const step6 = step5 + 1;
-    console.log(`📝 [${step6}] Initializing metadata`);
+    console.log(`📝 [${step6}] Initializing metadata with URI`);
     transaction.add(
       createInitializeInstruction({
         programId: TOKEN_2022_PROGRAM_ID,
@@ -417,7 +404,7 @@ export class AtomicToken2022MintService {
         mint: mint,
         name: metadata.name,
         symbol: metadata.symbol,
-        uri: metadata.imageUrl || '',
+        uri: metadata.metadataUri || metadata.imageUrl || '', // ✅ Use metadataUri (JSON) first, fallback to imageUrl for backward compatibility
         mintAuthority: payer,
         updateAuthority: payer,
       })
@@ -503,13 +490,14 @@ export class AtomicToken2022MintService {
     console.log('   Name:', metadata.name);
     console.log('   Symbol:', metadata.symbol);
     console.log('   Decimals:', metadata.decimals);
-    console.log('   Image URL:', metadata.imageUrl || '(none)');
+    console.log('   Metadata URI:', metadata.metadataUri || metadata.imageUrl || '(none)'); // ✅ Updated log
     console.log('   Mint authority:', config.mintAuthority ? 'RETAINED' : 'REVOKED');
     console.log('   Freeze authority:', config.freezeAuthority ? 'RETAINED' : 'REVOKED');
     console.log('💡 Fixed: Using pack() for accurate metadata size!');
     console.log('💡 Fixed: Using setAuthority to revoke authorities after mint!');
+    console.log('💡 Fixed: Using metadataUri (JSON) instead of imageUrl!'); // ✅ New log
     if (this.referrerWallet) {
-      console.log('Referral: Fee split enabled (45/55)!');
+      console.log('🎯 Referral: Fee split enabled (45/55)!');
     }
 
     return transaction;
