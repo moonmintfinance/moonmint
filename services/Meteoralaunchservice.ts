@@ -167,7 +167,7 @@ export class MeteoraLaunchService {
           config: configKey,
           name: metadata.name,
           symbol: metadata.symbol,
-          uri: metadata.imageUrl || '',
+          uri: metadata.metadataUri || metadata.imageUrl || '',
           payer: payer,
           poolCreator: payer,
         },
