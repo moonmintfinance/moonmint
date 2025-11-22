@@ -9,10 +9,15 @@ import bs58 from 'bs58';
  * Upload image to IPFS with wallet signature authentication
  * This prevents spam - only connected wallets can upload
  *
+ * ✅ CRITICAL: Returns ipfs:// URI (not HTTP gateway URL)
+ * This follows IPFS Foundation best practices for token metadata URIs
+ * Token metadata should reference content by hash, not by specific gateway
+ * Clients can use ANY gateway to fetch the content
+ *
  * @param file - The image file to upload
  * @param signMessage - Wallet's message signing function
  * @param publicKey - Wallet's public key (base58 string)
- * @returns IPFS URL of uploaded image
+ * @returns ipfs:// URI of uploaded image (not HTTP gateway URL)
  */
 export async function uploadImageToIPFS(
   file: File,
@@ -52,12 +57,37 @@ export async function uploadImageToIPFS(
 
     const data = await response.json();
 
-    if (!data.url) {
-      throw new Error('Invalid response from upload server');
+    // ✅ CRITICAL: Extract IPFS hash and return ipfs:// URI
+    // Pinata returns either 'url' (gateway URL) or 'IpfsHash' (content hash)
+    let ipfsHash = '';
+
+    if (data.IpfsHash) {
+      // Pinata API response
+      ipfsHash = data.IpfsHash;
+    } else if (data.url) {
+      // Extract hash from gateway URL
+      // Format: https://gateway.pinata.cloud/ipfs/{hash} or https://custom.mypinata.cloud/ipfs/{hash}
+      const match = data.url.match(/\/ipfs\/([a-zA-Z0-9]+)/);
+      if (match) {
+        ipfsHash = match[1];
+      } else {
+        // Fallback to returning the URL if we can't extract hash
+        console.warn('⚠️ Could not extract IPFS hash from URL, returning gateway URL as fallback');
+        return data.url;
+      }
+    } else {
+      throw new Error('Invalid response from upload server - missing IpfsHash or url');
     }
 
-    console.log('✅ File uploaded securely:', data.url);
-    return data.url;
+    // ✅ Return ipfs:// URI (follows IPFS Foundation best practices)
+    const ipfsUri = `ipfs://${ipfsHash}`;
+
+    console.log('✅ File uploaded to IPFS');
+    console.log(`📍 IPFS Hash: ${ipfsHash}`);
+    console.log(`🔗 IPFS URI (for on-chain metadata): ${ipfsUri}`);
+    console.log('💡 This URI works with ANY IPFS gateway - future-proof and decentralized!');
+
+    return ipfsUri;
   } catch (error) {
     console.error('❌ IPFS Upload Error:', error);
     throw error;
