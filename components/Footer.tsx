@@ -1,3 +1,6 @@
+import { FaTelegram, FaGithub } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
+
 export function Footer() {
   return (
     <footer className="py-12 px-6 border-t border-dark-200">
@@ -55,21 +58,12 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
-                  href="https://www.moonmint.finance/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
-                >
-                  Website
-                </a>
-              </li>
-              <li>
-                <a
                   href="https://x.com/MoonMintFinance"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors flex items-center"
                 >
+                  <FaXTwitter className="w-4 h-4 mr-2" />
                   Twitter
                 </a>
               </li>
@@ -78,8 +72,9 @@ export function Footer() {
                   href="https://t.me/+cumdynQc6DExMDBh"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors flex items-center"
                 >
+                  <FaTelegram className="w-4 h-4 mr-2" />
                   Telegram
                 </a>
               </li>
@@ -88,8 +83,9 @@ export function Footer() {
                   href="https://github.com/moonmintfinance/moonmint/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors flex items-center"
                 >
+                  <FaGithub className="w-4 h-4 mr-2" />
                   GitHub
                 </a>
               </li>

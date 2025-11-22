@@ -7,6 +7,9 @@ import { sanitizeInput } from '@/utils/validation';
 import { SERVICE_FEE_BASE_SOL, SERVICE_FEE_AUTHORITY_SOL, METEORA_CONFIG } from '@/lib/constants';
 import { uploadImageToIPFS } from '@/services/web3Storage';
 import { toast } from 'react-hot-toast';
+// Imports for brand icons
+import { FaTelegram, FaDiscord, FaGlobe } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
 
 interface TokenFormProps {
   onSubmit: (
@@ -426,8 +429,9 @@ export function TokenForm({
 
             {/* X/Twitter */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="twitter">
-                <span className="mr-2">𝕏</span>X / Twitter
+              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="twitter">
+                <FaXTwitter className="w-4 h-4 mr-2" />
+                Twitter
               </label>
               <input
                 id="twitter"
@@ -442,8 +446,9 @@ export function TokenForm({
 
             {/* Telegram */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="telegram">
-                <span className="mr-2">📱</span>Telegram
+              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="telegram">
+                <FaTelegram className="w-4 h-4 mr-2" />
+                Telegram
               </label>
               <input
                 id="telegram"
@@ -458,8 +463,9 @@ export function TokenForm({
 
             {/* Discord */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="discord">
-                <span className="mr-2">💬</span>Discord
+              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="discord">
+                <FaDiscord className="w-4 h-4 mr-2" />
+                Discord
               </label>
               <input
                 id="discord"
@@ -474,8 +480,9 @@ export function TokenForm({
 
             {/* Website */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="website">
-                <span className="mr-2">🌐</span>Website
+              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="website">
+                <FaGlobe className="w-4 h-4 mr-2" />
+                Website
               </label>
               <input
                 id="website"
