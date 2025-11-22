@@ -5,12 +5,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hash: string[] } }
+  { params }: { params: Promise<{ hash: string[] }> }
 ) {
   try {
-    const hash = params.hash.join('/');
+    const { hash } = await params;
+    const hashStr = hash.join('/');
 
-    if (!hash) {
+    if (!hashStr) {
       return NextResponse.json(
         { error: 'No IPFS hash provided' },
         { status: 400 }
@@ -27,9 +28,9 @@ export async function GET(
     }
 
     const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
-    const url = `${gateway}/ipfs/${hash}`;
+    const url = `${gateway}/ipfs/${hashStr}`;
 
-    console.log(`📡 Proxying IPFS request: ${hash}`);
+    console.log(`📡 Proxying IPFS request: ${hashStr}`);
 
     const response = await fetch(url, {
       headers: {
@@ -40,7 +41,7 @@ export async function GET(
     });
 
     if (!response.ok) {
-      console.error(`❌ Gateway returned ${response.status} for ${hash}`);
+      console.error(`❌ Gateway returned ${response.status} for ${hashStr}`);
       return NextResponse.json(
         { error: `Gateway error: ${response.status}` },
         { status: response.status }
