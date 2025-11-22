@@ -206,7 +206,7 @@ export function TransactionConfirmation({
             <div className="bg-dark-50 rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">
-                  {isMeteora ? 'Total Launch Fee:' : 'Total Service Fee:'}
+                  {isMeteora ? 'Moon Mint Launch Fee:' : 'Total Service Fee:'}
                 </span>
                 <span className="text-2xl font-bold text-primary-300">
                   {totalFeeSol} SOL
