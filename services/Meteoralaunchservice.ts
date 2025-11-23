@@ -27,7 +27,7 @@ export interface MeteoraLaunchParams {
 }
 
 export interface MeteoraLaunchResult {
-  transaction: Transaction;
+  transactions: Transaction[];
   mintAddress: string;
   poolAddress: string;
 }
@@ -102,7 +102,11 @@ export class MeteoraLaunchService {
 
   /**
    * Launch token on Meteora bonding curve
-   * Let the SDK handle mint and token creation - much simpler!
+   *
+   * CRITICAL FIX: Returns array of separate transactions with correct signing order
+   * 1. SDK creates separate transactions (pool creation + swap)
+   * 2. We partially sign with keypairs FIRST
+   * 3. Return transactions for Phantom to sign via signAllTransactions
    */
   async launchToken(params: MeteoraLaunchParams): Promise<MeteoraLaunchResult> {
     this.validateConfig();
@@ -174,36 +178,45 @@ export class MeteoraLaunchService {
         firstBuyParam: firstBuyParam,
       });
 
-      console.log('✅ Pool transaction created by SDK');
+      console.log('✅ Pool transactions created by SDK');
 
-      // 6. Build final transaction (SDK handles everything)
-      const finalTx = new Transaction();
-
-      // Add pool creation instructions
-      finalTx.add(...poolTxResult.createPoolTx.instructions);
-
-      // Add swap buy instructions (if applicable)
-      if (poolTxResult.swapBuyTx) {
-        finalTx.add(...poolTxResult.swapBuyTx.instructions);
-        console.log('✅ First buy included in transaction');
-      }
-
-      // Set transaction metadata
-      finalTx.feePayer = payer;
+      // ========================================================================
+      // CRITICAL FIX: Handle signing order properly for Phantom
+      // Keep transactions separate - don't combine them
+      // ========================================================================
+      const txsToSign: Transaction[] = [];
       const { blockhash } = await this.connection.getLatestBlockhash(
         TRANSACTION_CONFIG.COMMITMENT
       );
-      finalTx.recentBlockhash = blockhash;
 
-      // Partially sign with mint keypair
-      finalTx.partialSign(mintKeypair);
+      // STEP 1: Prepare pool creation transaction
+      const poolTx = poolTxResult.createPoolTx;
+      poolTx.feePayer = payer;
+      poolTx.recentBlockhash = blockhash;
+
+      // ✅ CRITICAL: Partially sign with mint keypair BEFORE Phantom signs
+      // This must happen FIRST, before Phantom sees the transaction
+      poolTx.partialSign(mintKeypair);
+
+      console.log('📝 Pool creation transaction partially signed with mint keypair');
+      txsToSign.push(poolTx);
+
+      // STEP 2: Prepare swap/buy transaction (if applicable)
+      if (poolTxResult.swapBuyTx) {
+        const swapTx = poolTxResult.swapBuyTx;
+        swapTx.feePayer = payer;
+        swapTx.recentBlockhash = blockhash;
+
+        console.log('📝 Swap/buy transaction prepared');
+        txsToSign.push(swapTx);
+      }
 
       console.log(
-        `📝 Transaction built with ${finalTx.instructions.length} instructions`
+        `✅ Prepared ${txsToSign.length} transaction(s) for Phantom signing`
       );
 
       return {
-        transaction: finalTx,
+        transactions: txsToSign,
         mintAddress: mint.toBase58(),
         poolAddress: poolAddress.toBase58(),
       };

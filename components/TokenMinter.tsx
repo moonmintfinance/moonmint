@@ -230,7 +230,7 @@ export function TokenMinter() {
       // =========================================================================
       if (launchType === LaunchType.METEORA) {
         // =====================================================================
-        // METEORA BONDING CURVE LAUNCH
+        // METEORA BONDING CURVE LAUNCH - FIXED SIGNING ORDER
         // =====================================================================
         console.log('🚀 Launching on Meteora bonding curve...');
 
@@ -257,28 +257,86 @@ export function TokenMinter() {
             : undefined,
         });
 
-        console.log('✍️ Signing and sending transaction...');
+        console.log('✍️ Signing transactions with Phantom (correct order)...');
 
-        const signature = await sendTransaction(result.transaction, connection, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-        });
+        // ✅ CRITICAL FIX: Use signAllTransactions instead of sendTransaction
+        // This follows Phantom's best practices for multi-signature transactions
+        if (!signAllTransactions) {
+          throw new Error('Wallet does not support signing multiple transactions');
+        }
 
-        console.log('⏳ Confirming transaction on server...');
-        await confirmTransactionServerSide(signature);
+        try {
+          // Sign all transactions together
+          const signedTxs = await signAllTransactions(result.transactions);
 
-        console.log('✅ Token launched on Meteora successfully!');
+          console.log(`📤 Sending ${signedTxs.length} signed transaction(s) to network...`);
 
-        toast.success('Token launched on Meteora bonding curve!', {
-          id: loadingToast,
-        });
+          // Send each signed transaction
+          const signatures: string[] = [];
+          for (let i = 0; i < signedTxs.length; i++) {
+            const sig = await connection.sendRawTransaction(
+              signedTxs[i].serialize(),
+              {
+                skipPreflight: false,
+                preflightCommitment: 'confirmed',
+              }
+            );
+            signatures.push(sig);
+            console.log(`✅ Transaction ${i + 1}/${signedTxs.length} sent: ${sig}`);
+          }
 
-        setMintResult({
-          mintAddress: result.mintAddress,
-          signature,
-          launchType: LaunchType.METEORA,
-          poolAddress: result.poolAddress,
-        });
+          // Confirm all transactions
+          console.log('⏳ Confirming transactions on network...');
+          for (const sig of signatures) {
+            await connection.confirmTransaction(
+              {
+                signature: sig,
+                blockhash: (await connection.getLatestBlockhash()).blockhash,
+                lastValidBlockHeight: (
+                  await connection.getLatestBlockhash()
+                ).lastValidBlockHeight,
+              },
+              'confirmed'
+            );
+          }
+
+          console.log('✅ All transactions confirmed!');
+          console.log('⏳ Confirming on server...');
+          await confirmTransactionServerSide(signatures[0]);
+
+          console.log('✅ Token launched on Meteora successfully!');
+
+          toast.success('Token launched on Meteora bonding curve!', {
+            id: loadingToast,
+          });
+
+          setMintResult({
+            mintAddress: result.mintAddress,
+            signature: signatures[0],
+            launchType: LaunchType.METEORA,
+            poolAddress: result.poolAddress,
+          });
+
+        } catch (phantomError) {
+          console.error('❌ Phantom signing error:', phantomError);
+
+          const displayMessage = sanitizeErrorMessage(phantomError);
+
+          if (displayMessage.includes('User rejected') || displayMessage.includes('User cancelled')) {
+            toast.error('Transaction rejected by user', { id: loadingToast });
+          } else if (displayMessage.includes('does not support signing multiple')) {
+            toast.error('Your wallet does not support this feature. Try updating your wallet.', { id: loadingToast });
+          } else if (displayMessage.includes('scam') || displayMessage.includes('suspicious')) {
+            toast.error(
+              'Phantom flagged this as suspicious. If you trust this transaction, try again.',
+              { id: loadingToast, duration: 5000 }
+            );
+          } else {
+            toast.error(displayMessage || 'Failed to sign and send transactions', { id: loadingToast });
+          }
+
+          throw phantomError;
+        }
       } else {
         // =====================================================================
         // DIRECT TOKEN 2022 LAUNCH
