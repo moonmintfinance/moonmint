@@ -28,6 +28,7 @@ export interface MeteoraLaunchParams {
 
 export interface MeteoraLaunchResult {
   transactions: Transaction[];
+  mintKeypair: Keypair;
   mintAddress: string;
   poolAddress: string;
 }
@@ -103,10 +104,13 @@ export class MeteoraLaunchService {
   /**
    * Launch token on Meteora bonding curve
    *
-   * CRITICAL FIX: Returns array of separate transactions with correct signing order
-   * 1. SDK creates separate transactions (pool creation + swap)
-   * 2. We partially sign with keypairs FIRST
-   * 3. Return transactions for Phantom to sign via signAllTransactions
+   * CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
+   * "Sign with Phantom first using signTransaction, then collect signatures from other signers"
+   *
+   * This method:
+   * 1. Creates separate transactions (pool creation + swap)
+   * 2. Returns them for Phantom to sign FIRST
+   * 3. Returns the mint keypair for client to sign AFTER
    */
   async launchToken(params: MeteoraLaunchParams): Promise<MeteoraLaunchResult> {
     this.validateConfig();
@@ -181,8 +185,9 @@ export class MeteoraLaunchService {
       console.log('✅ Pool transactions created by SDK');
 
       // ========================================================================
-      // CRITICAL FIX: Handle signing order properly for Phantom
-      // Keep transactions separate - don't combine them
+      // CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
+      // "Sign with Phantom first using signTransaction, then collect signatures from other signers"
+      // Do NOT pre-sign with keypairs - let Phantom handle signing first
       // ========================================================================
       const txsToSign: Transaction[] = [];
       const { blockhash } = await this.connection.getLatestBlockhash(
@@ -194,11 +199,7 @@ export class MeteoraLaunchService {
       poolTx.feePayer = payer;
       poolTx.recentBlockhash = blockhash;
 
-      // ✅ CRITICAL: Partially sign with mint keypair BEFORE Phantom signs
-      // This must happen FIRST, before Phantom sees the transaction
-      poolTx.partialSign(mintKeypair);
-
-      console.log('📝 Pool creation transaction partially signed with mint keypair');
+      console.log('📝 Pool creation transaction prepared for Phantom signing');
       txsToSign.push(poolTx);
 
       // STEP 2: Prepare swap/buy transaction (if applicable)
@@ -207,7 +208,7 @@ export class MeteoraLaunchService {
         swapTx.feePayer = payer;
         swapTx.recentBlockhash = blockhash;
 
-        console.log('📝 Swap/buy transaction prepared');
+        console.log('📝 Swap/buy transaction prepared for Phantom signing');
         txsToSign.push(swapTx);
       }
 
@@ -217,6 +218,7 @@ export class MeteoraLaunchService {
 
       return {
         transactions: txsToSign,
+        mintKeypair,  // Return keypair for client to sign AFTER Phantom
         mintAddress: mint.toBase58(),
         poolAddress: poolAddress.toBase58(),
       };

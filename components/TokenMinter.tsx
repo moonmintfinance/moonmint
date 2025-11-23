@@ -257,36 +257,47 @@ export function TokenMinter() {
             : undefined,
         });
 
-        console.log('✍️ Signing transactions with Phantom (correct order)...');
+        console.log('✍️ Signing transactions with Phantom (correct order per Phantom docs)...');
 
-        // ✅ CRITICAL FIX: Use signAllTransactions instead of sendTransaction
-        // This follows Phantom's best practices for multi-signature transactions
-        if (!signAllTransactions) {
-          throw new Error('Wallet does not support signing multiple transactions');
+        // ✅ CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
+        // "Sign with Phantom first using signTransaction, then collect signatures from other signers"
+        if (!signTransaction) {
+          throw new Error('Wallet does not support transaction signing');
         }
 
         try {
-          // Sign all transactions together
-          const signedTxs = await signAllTransactions(result.transactions);
-
-          console.log(`📤 Sending ${signedTxs.length} signed transaction(s) to network...`);
-
-          // Send each signed transaction
           const signatures: string[] = [];
-          for (let i = 0; i < signedTxs.length; i++) {
+
+          // Process each transaction in order
+          for (let i = 0; i < result.transactions.length; i++) {
+            const tx = result.transactions[i];
+
+            console.log(`\n📝 Transaction ${i + 1}/${result.transactions.length}:`);
+
+            // ✅ STEP 1: Sign with Phantom FIRST (per Phantom docs)
+            console.log('  → Signing with Phantom wallet...');
+            const signedByPhantom = await signTransaction(tx);
+
+            // ✅ STEP 2: Then collect signatures from other signers (mint keypair)
+            // For pool creation, also need mint keypair signature
+            console.log('  → Adding mint keypair signature...');
+            signedByPhantom.partialSign(result.mintKeypair);
+
+            // ✅ STEP 3: Send the fully signed transaction
+            console.log('  → Sending to network...');
             const sig = await connection.sendRawTransaction(
-              signedTxs[i].serialize(),
+              signedByPhantom.serialize(),
               {
                 skipPreflight: false,
                 preflightCommitment: 'confirmed',
               }
             );
             signatures.push(sig);
-            console.log(`✅ Transaction ${i + 1}/${signedTxs.length} sent: ${sig}`);
+            console.log(`  ✅ Sent: ${sig}`);
           }
 
           // Confirm all transactions
-          console.log('⏳ Confirming transactions on network...');
+          console.log('\n⏳ Confirming transactions on network...');
           for (const sig of signatures) {
             await connection.confirmTransaction(
               {
@@ -324,7 +335,7 @@ export function TokenMinter() {
 
           if (displayMessage.includes('User rejected') || displayMessage.includes('User cancelled')) {
             toast.error('Transaction rejected by user', { id: loadingToast });
-          } else if (displayMessage.includes('does not support signing multiple')) {
+          } else if (displayMessage.includes('does not support')) {
             toast.error('Your wallet does not support this feature. Try updating your wallet.', { id: loadingToast });
           } else if (displayMessage.includes('scam') || displayMessage.includes('suspicious')) {
             toast.error(
