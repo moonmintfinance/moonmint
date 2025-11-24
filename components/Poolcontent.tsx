@@ -95,8 +95,8 @@ export function PoolContent({ mint }: PoolContentProps) {
                 displayMode="integrated"
                 formProps={jupiterFormProps}
                 branding={{
-                  name: 'Moon Mint',
-                  logoUri: '/moon_mint_logo.png',
+                  name: 'Chad Mint',
+                  logoUri: '/Chadmint_logo1.png',
                 }}
               />
             </div>

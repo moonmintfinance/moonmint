@@ -74,7 +74,7 @@ export function TransactionConfirmation({
                 </div>
                 <div className="text-xs text-yellow-300 mt-1">
                   {isMeteora
-                    ? 'You are about to launch a token on Moon Mints\'s bonding curve. This creates a dynamic pricing mechanism and allocates your token to the curve.'
+                    ? 'You are about to launch a token on Chad Mints\'s bonding curve. This creates a dynamic pricing mechanism and allocates your token to the curve.'
                     : 'You are about to sign a transaction that will create a new token on Solana. Review all details carefully before confirming.'}
                 </div>
               </div>
@@ -206,7 +206,7 @@ export function TransactionConfirmation({
             <div className="bg-dark-50 rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">
-                  {isMeteora ? 'Moon Mint Launch Fee:' : 'Total Service Fee:'}
+                  {isMeteora ? 'Chad Mint Launch Fee:' : 'Total Service Fee:'}
                 </span>
                 <span className="text-2xl font-bold text-primary-300">
                   {totalFeeSol} SOL

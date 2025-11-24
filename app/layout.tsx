@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   title: 'Solana Token Minter - Professional Coin Creation Platform',
   description: 'Create and mint your own Solana tokens with atomic transaction security',
   icons: {
-    icon: '/moon_mint_logo.png',
-    apple: '/moon_mint_logo.png',
+    icon: '/Chadmint_logo1.png',
+    apple: '/Chadmint_logo1.png',
   },
 };
 

@@ -1,4 +1,4 @@
-# Moon Mint Finance 🌙
+#Chad Mint Finance 🌙
 
 The professional way to launch Solana tokens. No code required.
 
@@ -6,7 +6,7 @@ The professional way to launch Solana tokens. No code required.
 
 **Official Links**
 
-To use the official Moon Mint site which runs off the main branch 
+To use the officialChad Mint site which runs off the main branch 
 of this repo visit https://www.moonmint.finance/
 
 To join our community on telegram visit https://t.me/moonmint_finance

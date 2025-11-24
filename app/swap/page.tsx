@@ -12,10 +12,10 @@ export default function TradePage() {
       <div className="flex-grow container mx-auto px-6 pt-24 md:pt-28 pb-20 max-w-2xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">
-            Trade Tokens
+            Chad Mint Swap
           </h1>
           <p className="text-gray-400">
-            Instant swaps powered by Jupiter.
+            Instantly swap of any Solana token
           </p>
         </div>
 

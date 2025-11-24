@@ -9,7 +9,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* --- COLUMN 1 --- */}
           <div>
-            <h3 className="font-semibold text-white mb-2">Moon Mint</h3>
+            <h3 className="font-semibold text-white mb-2">Chad Mint</h3>
             <p className="text-sm text-gray-400">
               Make the next moon shot
             </p>
@@ -95,7 +95,7 @@ export function Footer() {
         </div>
 
         <div className="pt-8 border-t border-dark-200 text-center text-sm text-gray-400">
-          <p>© 2025 Moon Mint. All rights reserved.</p>
+          <p>© 2025 Chad Mint. All rights reserved.</p>
         </div>
       </div>
     </footer>

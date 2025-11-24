@@ -12,7 +12,7 @@ export function Hero() {
           <div className="flex-1 text-center md:text-left space-y-6 md:space-y-8">
             <div>
               <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-3 md:mb-4">
-                Moon Mint
+                Chad Mint
                 <span className="block text-primary-400 text-3xl md:text-5xl mt-2">
                   Launch faster.
                 </span>
@@ -44,8 +44,8 @@ export function Hero() {
             <div className="relative w-[280px] h-[280px] md:w-[500px] md:h-[500px]">
               <div className="absolute inset-0 bg-primary-500/10 blur-[80px] rounded-full mix-blend-screen"></div>
               <Image
-                src="/moon_mint_logo.png"
-                alt="Moon Mint Logo"
+                src="/Chadmint_logo1.png"
+                alt="Chad Mint Logo"
                 fill
                 className="object-contain animate-float relative"
                 priority

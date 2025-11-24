@@ -109,7 +109,7 @@ export function Header() {
           <div className="flex items-center space-x-3">
             <a href="/" className="block">
               <div className="flex flex-col">
-                <h1 className="text-lg font-semibold text-white">Moon Mint</h1>
+                <h1 className="text-lg font-semibold text-white">Chad Mint</h1>
                 <p className="text-xs text-gray-400">Make the next moon shot</p>
               </div>
             </a>

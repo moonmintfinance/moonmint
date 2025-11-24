@@ -250,7 +250,7 @@ export function TokenForm({
             }`}
             disabled={isLoading || !isWalletConnected}
           >
-            <div className="font-medium text-white mb-1">Moon Mint Bonding Curve</div>
+            <div className="font-medium text-white mb-1">Chad Mint Bonding Curve</div>
             <div className="text-xs text-gray-400">Instant trading and liquidity</div>
           </button>
           <button
@@ -664,7 +664,7 @@ export function TokenForm({
         ) : !isWalletConnected ? (
           'Connect Wallet to Create Token'
         ) : (
-          launchType === LaunchType.METEORA ? 'Launch on Moon Mint' : 'Create Token'
+          launchType === LaunchType.METEORA ? 'Launch on Chad Mint' : 'Create Token'
         )}
       </button>
     </form>

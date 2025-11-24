@@ -480,7 +480,7 @@ export function TokenMinter() {
             Create Your Token
           </h2>
           <p className="text-gray-400">
-            Mint a Solana Token to your wallet or launch on a Moon Mint bonding curve, powered by Meteora
+            Mint a Solana Token to your wallet or launch on a Chad Mint bonding curve, powered by Meteora
           </p>
         </div>
 

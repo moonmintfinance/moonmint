@@ -310,7 +310,7 @@ export default function MeteoraPools() {
     <div className="flex-grow container mx-auto px-6 pt-24 pb-20 max-w-6xl">
       <div className="mb-12 text-center">
         <h1 className="text-4xl font-bold text-white mb-4">Recently Launched Tokens</h1>
-        <p className="text-gray-400">Discover tokens launched on Moon Mint bonding curves</p>
+        <p className="text-gray-400">Discover tokens launched on Chad Mint bonding curves</p>
         {!loading && !error && pools.length > 0 && (
           <p className="text-sm text-gray-500 mt-2">
             Showing {startIndex + 1}-{Math.min(endIndex, pagination.totalItems)} of {pagination.totalItems} tokens
