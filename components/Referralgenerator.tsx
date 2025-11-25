@@ -38,7 +38,7 @@ export function ReferralGenerator() {
             Referral Program
           </h1>
           <p className="text-xl text-gray-400">
-            We have the best referral rewards in the galaxy. Earn 55% of fees from every token minted with your link!
+            We have the best referral rewards ever. Earn 55% of fees from every chad who uses your referral link!
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export function ReferralGenerator() {
                 <div>
                   <h3 className="font-medium text-white mb-1">Share Your Link</h3>
                   <p className="text-sm text-gray-400">
-                    Give your referral link to friends, or post it on social media
+                    Give your referral link to based devs only
                   </p>
                 </div>
               </div>
@@ -81,7 +81,7 @@ export function ReferralGenerator() {
                 <div>
                   <h3 className="font-medium text-white mb-1">They Create a Token</h3>
                   <p className="text-sm text-gray-400">
-                    Anyone who uses your link and creates a token pays a minting fee
+                    Chads who use your link and creates a token pay a minting fee
                   </p>
                 </div>
               </div>
@@ -122,7 +122,7 @@ export function ReferralGenerator() {
                 {/* Connected State */}
                 <div className="bg-dark-50 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-400">Share this link to earn commissions</p>
+                    <p className="text-sm text-gray-400">Give this link to chads only</p>
                     <button
                       onClick={handleCopy}
                       className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded transition-colors"
@@ -143,7 +143,7 @@ export function ReferralGenerator() {
                     Connect Your Wallet
                   </h2>
                   <p className="text-gray-300 mb-6">
-                    Connect your wallet to generate your unique referral link and start earning commissions.
+                    Connect your wallet to generate your unique referral link and start referring chads.
                   </p>
                   <button
                     onClick={() => setVisible(true)}

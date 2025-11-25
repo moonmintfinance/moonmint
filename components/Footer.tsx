@@ -3,30 +3,32 @@ import { FaXTwitter } from 'react-icons/fa6';
 
 export function Footer() {
   return (
-    <footer className="py-12 px-6 border-t border-dark-200">
+    <footer className="py-12 px-6 border-t border-primary-500/20 bg-black">
       <div className="container mx-auto">
-        {/* Updated from md:grid-cols-2 to md:grid-cols-3 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          {/* --- COLUMN 1 --- */}
+          {/* Column 1 */}
           <div>
-            <h3 className="font-semibold text-white mb-2">Chad Mint</h3>
-            <p className="text-sm text-gray-400">
-              Make the next moon shot
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 bg-primary-500 rounded-sm"></div>
+              <h3 className="font-black text-white uppercase tracking-tighter">ChadMint</h3>
+            </div>
+            <p className="text-sm text-gray-400 font-mono">
+              Deploy alpha in seconds
             </p>
           </div>
 
-          {/* --- COLUMN 2 --- */}
+          {/* Column 2 */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Resources</h4>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Resources</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
                   href="https://docs.solana.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  Solana Documentation
+                  Solana Docs
                 </a>
               </li>
               <li>
@@ -34,9 +36,9 @@ export function Footer() {
                   href="https://spl.solana.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  SPL Token Program
+                  SPL Token
                 </a>
               </li>
               <li>
@@ -44,24 +46,24 @@ export function Footer() {
                   href="https://explorer.solana.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  Solana Explorer
+                  Explorer
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* --- NEWLY ADDED COLUMN 3 --- */}
+          {/* Column 3 */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Community</h4>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Community</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
-                  href="https://x.com/"
+                  href="https://x.com/chad_mint_team"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors flex items-center"
+                  className="hover:text-primary-500 transition-colors flex items-center font-mono"
                 >
                   <FaXTwitter className="w-4 h-4 mr-2" />
                   Twitter
@@ -72,18 +74,18 @@ export function Footer() {
                   href="https://t.me/chad_mint"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors flex items-center"
+                  className="hover:text-primary-500 transition-colors flex items-center font-mono"
                 >
                   <FaTelegram className="w-4 h-4 mr-2" />
                   Telegram
                 </a>
               </li>
               <li>
-                  <a
+                <a
                   href="https://github.com/chadmintteam/chadmint"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors flex items-center"
+                  className="hover:text-primary-500 transition-colors flex items-center font-mono"
                 >
                   <FaGithub className="w-4 h-4 mr-2" />
                   GitHub
@@ -91,10 +93,9 @@ export function Footer() {
               </li>
             </ul>
           </div>
-
         </div>
 
-        <div className="pt-8 border-t border-dark-200 text-center text-sm text-gray-400">
+        <div className="pt-8 border-t border-primary-500/20 text-center text-sm text-gray-400 font-mono">
           <p>© 2025 Chad Mint. All rights reserved.</p>
         </div>
       </div>

@@ -7,7 +7,6 @@ import { sanitizeInput } from '@/utils/validation';
 import { SERVICE_FEE_BASE_SOL, SERVICE_FEE_AUTHORITY_SOL, METEORA_CONFIG } from '@/lib/constants';
 import { uploadImageToIPFS } from '@/services/web3Storage';
 import { toast } from 'react-hot-toast';
-// Imports for brand icons
 import { FaTelegram, FaDiscord, FaGlobe } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 
@@ -42,23 +41,23 @@ function FeeBreakdown({ config, launchType, meteoraConfig }: FeeBreakdownProps) 
     const totalFee = meteoraBaseFee + firstBuyFee;
 
     return (
-      <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-4">
+      <div className="bg-primary-500/10 border-2 border-primary-500/30 rounded-none p-4">
         <div className="text-sm">
-          <div className="font-medium text-primary-400 mb-3">Fee Breakdown</div>
-          <div className="space-y-2 text-gray-400 text-sm">
+          <div className="font-bold text-primary-500 mb-3 uppercase tracking-wide">Fee Breakdown</div>
+          <div className="space-y-2 text-gray-300 text-sm font-mono">
             <div className="flex justify-between">
               <span>Pool creation fee:</span>
-              <span className="font-medium">{meteoraBaseFee.toFixed(2)} SOL</span>
+              <span className="font-bold text-primary-500">{meteoraBaseFee.toFixed(2)} SOL</span>
             </div>
             {meteoraConfig.enableFirstBuy && (
               <div className="flex justify-between">
                 <span>First buy amount:</span>
-                <span className="font-medium">{firstBuyFee.toFixed(2)} SOL</span>
+                <span className="font-bold text-primary-500">{firstBuyFee.toFixed(2)} SOL</span>
               </div>
             )}
-            <div className="flex justify-between border-t border-primary-500/20 pt-2 mt-2">
-              <span className="font-semibold">Total fee:</span>
-              <span className="font-bold text-primary-300">
+            <div className="flex justify-between border-t border-primary-500/30 pt-2 mt-2">
+              <span className="font-bold">Total fee:</span>
+              <span className="font-bold text-primary-500 text-lg">
                 {totalFee.toFixed(2)} SOL
               </span>
             </div>
@@ -68,38 +67,36 @@ function FeeBreakdown({ config, launchType, meteoraConfig }: FeeBreakdownProps) 
     );
   }
 
-  // Direct Token 2022 fees
   const baseFee = SERVICE_FEE_BASE_SOL;
   const authorityFee = SERVICE_FEE_AUTHORITY_SOL;
-  const authoritiesCost =
-    (config.mintAuthority ? 1 : 0) + (config.freezeAuthority ? 1 : 0);
+  const authoritiesCost = (config.mintAuthority ? 1 : 0) + (config.freezeAuthority ? 1 : 0);
   const authoritiesFeeTotal = authoritiesCost * authorityFee;
   const totalFee = baseFee + authoritiesFeeTotal;
 
   return (
-    <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-4">
+    <div className="bg-primary-500/10 border-2 border-primary-500/30 rounded-none p-4">
       <div className="text-sm">
-        <div className="font-medium text-primary-400 mb-3">Fee Breakdown</div>
-        <div className="space-y-2 text-gray-400 text-sm">
+        <div className="font-bold text-primary-500 mb-3 uppercase tracking-wide">Fee Breakdown</div>
+        <div className="space-y-2 text-gray-300 text-sm font-mono">
           <div className="flex justify-between">
             <span>Base minting fee:</span>
-            <span className="font-medium">{baseFee.toFixed(2)} SOL</span>
+            <span className="font-bold text-primary-500">{baseFee.toFixed(2)} SOL</span>
           </div>
           {config.mintAuthority && (
             <div className="flex justify-between">
               <span>Revoke mint authority:</span>
-              <span className="font-medium">+{authorityFee.toFixed(2)} SOL</span>
+              <span className="font-bold text-primary-500">+{authorityFee.toFixed(2)} SOL</span>
             </div>
           )}
           {config.freezeAuthority && (
             <div className="flex justify-between">
               <span>Revoke freeze authority:</span>
-              <span className="font-medium">+{authorityFee.toFixed(2)} SOL</span>
+              <span className="font-bold text-primary-500">+{authorityFee.toFixed(2)} SOL</span>
             </div>
           )}
-          <div className="flex justify-between border-t border-primary-500/20 pt-2 mt-2">
-            <span className="font-semibold">Total fee:</span>
-            <span className="font-bold text-primary-300">
+          <div className="flex justify-between border-t border-primary-500/30 pt-2 mt-2">
+            <span className="font-bold">Total fee:</span>
+            <span className="font-bold text-primary-500 text-lg">
               {totalFee.toFixed(2)} SOL
             </span>
           </div>
@@ -130,7 +127,6 @@ export function TokenForm({
   });
 
   const [showProjectLinks, setShowProjectLinks] = useState(false);
-
   const [config, setConfig] = useState<MintConfig>({
     freezeAuthority: false,
     mintAuthority: false,
@@ -142,12 +138,10 @@ export function TokenForm({
     initialBuyAmount: 0.1,
   });
 
-  // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-configure decimals and supply for Meteora
   useEffect(() => {
     if (launchType === LaunchType.METEORA) {
       setFormData((prev) => ({
@@ -158,18 +152,15 @@ export function TokenForm({
     }
   }, [launchType]);
 
-  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
-      // Validate file size (max 4MB)
       if (file.size > 4 * 1024 * 1024) {
         toast.error('File size must be less than 4MB');
         return;
       }
 
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         toast.error('File must be an image');
         return;
@@ -212,7 +203,6 @@ export function TokenForm({
       imageUrl: formData.imageUrl,
     };
 
-    // Clean up project links (remove empty strings)
     const cleanProjectLinks: ProjectLinks = {};
     if (projectLinks.x?.trim()) cleanProjectLinks.x = projectLinks.x.trim();
     if (projectLinks.telegram?.trim()) cleanProjectLinks.telegram = projectLinks.telegram.trim();
@@ -232,46 +222,46 @@ export function TokenForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl p-8 space-y-6"
+      className="bg-dark-200/50 border-2 border-primary-500/30 rounded-none p-8 space-y-6"
     >
       {/* Launch Type Selection */}
       <div>
-        <label className="block text-sm font-medium mb-3 text-gray-300">
-          Launch Type <span className="text-red-400">*</span>
+        <label className="block text-sm font-bold mb-3 text-white uppercase tracking-wide">
+          Launch Type <span className="text-primary-500">*</span>
         </label>
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
             onClick={() => setLaunchType(LaunchType.METEORA)}
-            className={`p-4 rounded-lg border-2 transition-all ${
+            className={`p-4 rounded-none border-2 transition-all ${
               launchType === LaunchType.METEORA
                 ? 'border-primary-500 bg-primary-500/10'
-                : 'border-dark-300 bg-dark-50 hover:border-dark-200'
+                : 'border-primary-500/20 bg-dark-100 hover:border-primary-500/40'
             }`}
             disabled={isLoading || !isWalletConnected}
           >
-            <div className="font-medium text-white mb-1">Chad Mint Bonding Curve</div>
-            <div className="text-xs text-gray-400">Instant trading and liquidity</div>
+            <div className="font-bold text-white mb-1 uppercase">Meteora DBC</div>
+            <div className="text-xs text-gray-400">Instant trading</div>
           </button>
           <button
             type="button"
             onClick={() => setLaunchType(LaunchType.DIRECT)}
-            className={`p-4 rounded-lg border-2 transition-all ${
+            className={`p-4 rounded-none border-2 transition-all ${
               launchType === LaunchType.DIRECT
                 ? 'border-primary-500 bg-primary-500/10'
-                : 'border-dark-300 bg-dark-50 hover:border-dark-200'
+                : 'border-primary-500/20 bg-dark-100 hover:border-primary-500/40'
             }`}
             disabled={isLoading || !isWalletConnected}
           >
-            <div className="font-medium text-white mb-1">Direct Token 2022</div>
-            <div className="text-xs text-gray-400">Receive all tokens and customize authorities</div>
+            <div className="font-bold text-white mb-1 uppercase">Direct Token</div>
+            <div className="text-xs text-gray-400">Custom authorities</div>
           </button>
         </div>
       </div>
 
       {/* Image Upload */}
       <div>
-        <label className="block text-sm font-medium mb-3 text-gray-300">
+        <label className="block text-sm font-bold mb-3 text-white uppercase tracking-wide">
           Token Image (Optional)
         </label>
         <div className="flex gap-4">
@@ -279,10 +269,10 @@ export function TokenForm({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full px-4 py-3 border-2 border-dashed border-dark-300 rounded-lg hover:border-primary-500 transition-colors text-gray-300 hover:text-primary-400"
+              className="w-full px-4 py-3 border-2 border-dashed border-primary-500/50 hover:border-primary-500 transition-colors text-gray-300 hover:text-primary-500 bg-dark-100 font-bold"
               disabled={isLoading || !isWalletConnected}
             >
-              {imageFile ? '✓ Image selected' : 'Click to upload or drag image'}
+              {imageFile ? '✓ Image selected' : 'CLICK OR DRAG IMAGE'}
             </button>
             <input
               ref={fileInputRef}
@@ -298,7 +288,7 @@ export function TokenForm({
               <img
                 src={previewUrl}
                 alt="Token preview"
-                className="w-20 h-20 rounded-lg object-cover border border-dark-300"
+                className="w-20 h-20 object-cover border-2 border-primary-500/50"
               />
               <button
                 type="button"
@@ -306,7 +296,7 @@ export function TokenForm({
                   setImageFile(null);
                   setPreviewUrl(null);
                 }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                className="absolute -top-3 -right-3 bg-primary-500 text-black rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold hover:bg-primary-400"
               >
                 ✕
               </button>
@@ -317,8 +307,8 @@ export function TokenForm({
 
       {/* Token Name */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="name">
-          Token Name <span className="text-red-400">*</span>
+        <label className="block text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="name">
+          Token Name <span className="text-primary-500">*</span>
         </label>
         <input
           id="name"
@@ -326,7 +316,7 @@ export function TokenForm({
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g., My Token"
-          className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+          className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-3 focus:outline-none focus:border-primary-500 focus:shadow-lg focus:shadow-primary-500/20 transition-all font-bold"
           required
           maxLength={32}
           disabled={isLoading || !isWalletConnected}
@@ -336,8 +326,8 @@ export function TokenForm({
 
       {/* Token Symbol */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="symbol">
-          Token Symbol <span className="text-red-400">*</span>
+        <label className="block text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="symbol">
+          Token Symbol <span className="text-primary-500">*</span>
         </label>
         <input
           id="symbol"
@@ -346,8 +336,8 @@ export function TokenForm({
           onChange={(e) =>
             setFormData({ ...formData, symbol: e.target.value.toUpperCase() })
           }
-          placeholder="e.g., MTK"
-          className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all uppercase"
+          placeholder="e.g., CHAD"
+          className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-3 focus:outline-none focus:border-primary-500 focus:shadow-lg focus:shadow-primary-500/20 transition-all font-bold uppercase"
           required
           maxLength={10}
           disabled={isLoading || !isWalletConnected}
@@ -359,8 +349,8 @@ export function TokenForm({
       {launchType === LaunchType.DIRECT && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="decimals">
-              Decimals <span className="text-red-400">*</span>
+            <label className="block text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="decimals">
+              Decimals <span className="text-primary-500">*</span>
             </label>
             <input
               id="decimals"
@@ -374,7 +364,7 @@ export function TokenForm({
               }
               min={0}
               max={9}
-              className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-3 focus:outline-none focus:border-primary-500 focus:shadow-lg focus:shadow-primary-500/20 transition-all font-bold"
               required
               disabled={isLoading || !isWalletConnected}
             />
@@ -382,8 +372,8 @@ export function TokenForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300" htmlFor="supply">
-              Initial Supply <span className="text-red-400">*</span>
+            <label className="block text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="supply">
+              Initial Supply <span className="text-primary-500">*</span>
             </label>
             <input
               id="supply"
@@ -396,7 +386,7 @@ export function TokenForm({
                 })
               }
               min={0}
-              className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-3 focus:outline-none focus:border-primary-500 focus:shadow-lg focus:shadow-primary-500/20 transition-all font-bold"
               required
               disabled={isLoading || !isWalletConnected}
             />
@@ -406,17 +396,17 @@ export function TokenForm({
       )}
 
       {/* Project Links - Collapsible Section */}
-      <div className="border-t border-dark-200 pt-6">
+      <div className="border-t border-primary-500/30 pt-6">
         <button
           type="button"
           onClick={() => setShowProjectLinks(!showProjectLinks)}
-          className="flex items-center justify-between w-full text-left"
+          className="flex items-center justify-between w-full text-left hover:text-primary-500 transition-colors"
           disabled={isLoading || !isWalletConnected}
         >
-          <span className="text-sm font-semibold text-primary-400">
+          <span className="text-sm font-bold text-primary-500 uppercase tracking-wide">
             🔗 Project Links (Optional)
           </span>
-          <span className="text-primary-400">
+          <span className="text-primary-500 font-bold">
             {showProjectLinks ? '▼' : '▶'}
           </span>
         </button>
@@ -424,12 +414,11 @@ export function TokenForm({
         {showProjectLinks && (
           <div className="mt-4 space-y-4">
             <p className="text-xs text-gray-400 mb-4">
-              Add links to your project's social media and website. These will be included in your token metadata.
+              Add links to your project's social media and website.
             </p>
 
-            {/* X/Twitter */}
             <div>
-              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="twitter">
+              <label className="flex items-center text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="twitter">
                 <FaXTwitter className="w-4 h-4 mr-2" />
                 Twitter
               </label>
@@ -439,14 +428,13 @@ export function TokenForm({
                 value={projectLinks.x || ''}
                 onChange={(e) => handleProjectLinkChange('x', e.target.value)}
                 placeholder="https://x.com/yourproject"
-                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-2 focus:outline-none focus:border-primary-500 transition-all text-sm"
                 disabled={isLoading || !isWalletConnected}
               />
             </div>
 
-            {/* Telegram */}
             <div>
-              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="telegram">
+              <label className="flex items-center text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="telegram">
                 <FaTelegram className="w-4 h-4 mr-2" />
                 Telegram
               </label>
@@ -456,14 +444,13 @@ export function TokenForm({
                 value={projectLinks.telegram || ''}
                 onChange={(e) => handleProjectLinkChange('telegram', e.target.value)}
                 placeholder="https://t.me/yourproject"
-                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-2 focus:outline-none focus:border-primary-500 transition-all text-sm"
                 disabled={isLoading || !isWalletConnected}
               />
             </div>
 
-            {/* Discord */}
             <div>
-              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="discord">
+              <label className="flex items-center text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="discord">
                 <FaDiscord className="w-4 h-4 mr-2" />
                 Discord
               </label>
@@ -473,14 +460,13 @@ export function TokenForm({
                 value={projectLinks.discord || ''}
                 onChange={(e) => handleProjectLinkChange('discord', e.target.value)}
                 placeholder="https://discord.gg/yourserver"
-                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-2 focus:outline-none focus:border-primary-500 transition-all text-sm"
                 disabled={isLoading || !isWalletConnected}
               />
             </div>
 
-            {/* Website */}
             <div>
-              <label className="flex items-center text-sm font-medium mb-2 text-gray-300" htmlFor="website">
+              <label className="flex items-center text-sm font-bold mb-2 text-white uppercase tracking-wide" htmlFor="website">
                 <FaGlobe className="w-4 h-4 mr-2" />
                 Website
               </label>
@@ -490,7 +476,7 @@ export function TokenForm({
                 value={projectLinks.website || ''}
                 onChange={(e) => handleProjectLinkChange('website', e.target.value)}
                 placeholder="https://yourproject.com"
-                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                className="w-full bg-dark-100 border-2 border-primary-500/30 text-white rounded-none px-4 py-2 focus:outline-none focus:border-primary-500 transition-all text-sm"
                 disabled={isLoading || !isWalletConnected}
               />
             </div>
@@ -498,80 +484,29 @@ export function TokenForm({
         )}
       </div>
 
-      {/* Meteora First Buy Option */}
-      {launchType === LaunchType.METEORA && (
-        <div className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={meteoraConfig.enableFirstBuy}
-                  onChange={(e) =>
-                    setMeteoraConfig({
-                      ...meteoraConfig,
-                      enableFirstBuy: e.target.checked,
-                    })
-                  }
-                  className="w-4 h-4 rounded border-dark-300 text-primary-500"
-                  disabled={isLoading || !isWalletConnected}
-                />
-                <span className="font-semibold text-primary-300 text-sm">
-                  Enable First Buy
-                </span>
-              </label>
-              <p className="text-xs text-gray-400 mt-2">
-                Automatically buy tokens when the pool launches (costs additional SOL)
-              </p>
-            </div>
-          </div>
-          {meteoraConfig.enableFirstBuy && (
-            <div className="mt-4">
-              <label className="block text-sm font-medium mb-2 text-gray-300">
-                First Buy Amount (SOL)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step={0.1}
-                value={meteoraConfig.initialBuyAmount}
-                onChange={(e) =>
-                  setMeteoraConfig({
-                    ...meteoraConfig,
-                    initialBuyAmount: parseFloat(e.target.value) || 0,
-                  })
-                }
-                className="w-full bg-dark-50 border border-dark-300 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                disabled={isLoading || !isWalletConnected}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Authorities (only for Direct launch) */}
       {launchType === LaunchType.DIRECT && (
-        <div className="space-y-4 border-t border-dark-200 pt-6">
-          <div className="text-sm font-semibold text-primary-400 mb-4">
+        <div className="space-y-4 border-t border-primary-500/30 pt-6">
+          <div className="text-sm font-bold text-primary-500 mb-4 uppercase tracking-wide">
             Token Authorities
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="flex items-center space-x-3 cursor-pointer flex-1">
                 <input
                   type="checkbox"
                   checked={config.mintAuthority}
                   onChange={(e) => handleMintAuthorityChange(e.target.checked)}
-                  className="w-5 h-5 rounded border-dark-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                  className="w-5 h-5 border-2 border-primary-500/50 focus:ring-2 focus:ring-primary-500"
                   disabled={isLoading || !isWalletConnected}
                 />
-                <div className="text-sm font-medium text-gray-300">
+                <div className="text-sm font-bold text-white uppercase tracking-wide">
                   Revoke Mint Authority
                 </div>
               </label>
-              <span className="text-xs text-primary-400 font-medium">
-                Fee: {SERVICE_FEE_AUTHORITY_SOL.toFixed(1)} SOL
+              <span className="text-xs text-primary-500 font-bold ml-2">
+                +{SERVICE_FEE_AUTHORITY_SOL.toFixed(1)} SOL
               </span>
             </div>
             <p className="text-xs text-gray-400 ml-8">
@@ -579,49 +514,27 @@ export function TokenForm({
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="flex items-center space-x-3 cursor-pointer flex-1">
                 <input
                   type="checkbox"
                   checked={config.freezeAuthority}
                   onChange={(e) => handleFreezeAuthorityChange(e.target.checked)}
-                  className="w-5 h-5 rounded border-dark-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                  className="w-5 h-5 border-2 border-primary-500/50 focus:ring-2 focus:ring-primary-500"
                   disabled={isLoading || !isWalletConnected}
                 />
-                <div className="text-sm font-medium text-gray-300">
+                <div className="text-sm font-bold text-white uppercase tracking-wide">
                   Revoke Freeze Authority
                 </div>
               </label>
-              <span className="text-xs text-primary-400 font-medium">
-                Fee: {SERVICE_FEE_AUTHORITY_SOL.toFixed(1)} SOL
+              <span className="text-xs text-primary-500 font-bold ml-2">
+                +{SERVICE_FEE_AUTHORITY_SOL.toFixed(1)} SOL
               </span>
             </div>
             <p className="text-xs text-gray-400 ml-8">
-              Revoke your right to freeze token transfers and transactions.
+              Revoke your right to freeze token transfers.
             </p>
-          </div>
-        </div>
-      )}
-
-      {/* Meteora-specific info */}
-      {launchType === LaunchType.METEORA && (
-        <div className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-4 border-t border-dark-200 pt-6">
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
-              <div className="font-semibold text-primary-300 text-sm mb-2">
-                About Token Authorities
-              </div>
-              <p className="text-xs text-gray-300 mb-3">
-                On our bonding curves, your token is created with standard authorities.
-                This ensures a fair and transparent launch for all participants.
-              </p>
-              <ul className="text-xs text-gray-400 space-y-1">
-                <li>✓ Mint authority revoked: No one can mint additional tokens</li>
-                <li>✓ Freeze authority revoked: No one can tamper with transactions</li>
-                <li>✓ Update authority revoked: No one can change the tokens metadata</li>
-              </ul>
-            </div>
           </div>
         </div>
       )}
@@ -633,7 +546,7 @@ export function TokenForm({
       <button
         type="submit"
         disabled={isLoading || !isWalletConnected}
-        className="w-full bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors"
+        className="w-full bg-primary-500 hover:bg-primary-400 active:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-black py-4 rounded-none transition-all uppercase tracking-wide text-lg shadow-lg shadow-primary-500/40 hover:shadow-primary-500/60"
       >
         {isLoading ? (
           <span className="flex items-center justify-center space-x-2">
@@ -658,13 +571,13 @@ export function TokenForm({
               ></path>
             </svg>
             <span>
-              {launchType === LaunchType.METEORA ? 'Launching on Meteora...' : 'Creating Token...'}
+              {launchType === LaunchType.METEORA ? 'Launching...' : 'Creating...'}
             </span>
           </span>
         ) : !isWalletConnected ? (
-          'Connect Wallet to Create Token'
+          'Connect Wallet First'
         ) : (
-          launchType === LaunchType.METEORA ? 'Launch on Chad Mint' : 'Create Token'
+          launchType === LaunchType.METEORA ? 'Launch on Meteora' : 'Create Token'
         )}
       </button>
     </form>

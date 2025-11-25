@@ -11,9 +11,7 @@ export function Header() {
   const [activeSection, setActiveSection] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Detect which section is in view
   useEffect(() => {
-    // Only track sections on home page
     if (pathname !== '/') {
       return;
     }
@@ -27,11 +25,10 @@ export function Header() {
         });
       },
       {
-        threshold: 0.3, // Trigger when 30% of the section is visible
+        threshold: 0.3,
       }
     );
 
-    // Observe the mint section
     const mintSection = document.getElementById('mint');
     if (mintSection) {
       observer.observe(mintSection);
@@ -44,13 +41,11 @@ export function Header() {
     };
   }, [pathname]);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
   const isActive = (href: string) => {
-    // If we're on home page, check which section is in view
     if (pathname === '/') {
       if (href === '/') {
         return activeSection !== 'mint';
@@ -61,7 +56,6 @@ export function Header() {
       return false;
     }
 
-    // For other pages, standard route matching
     if (href === '/') {
       return pathname === '/';
     }
@@ -77,45 +71,44 @@ export function Header() {
     const isCurrentPage = isActive(href);
 
     if (isMobile) {
-      // Mobile styles - darker background when active, no transparency issues
-      return `block w-full py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
+      return `block w-full py-3 px-4 rounded-none text-sm font-bold transition-all duration-200 uppercase tracking-wider ${
         isCurrentPage
-          ? 'bg-primary-500/20 text-primary-400 border border-primary-500/20'
-          : 'text-gray-300 hover:bg-dark-200 hover:text-white'
+          ? 'bg-primary-500/20 text-primary-400 border-l-2 border-primary-500'
+          : 'text-gray-300 hover:bg-dark-200 hover:text-primary-500'
       }`;
     }
 
-    // Desktop styles
-    return `text-sm font-medium transition-colors ${
+    return `text-sm font-bold transition-colors uppercase tracking-wider ${
       isCurrentPage
-        ? 'text-primary-400 hover:text-primary-300'
-        : 'text-gray-300 hover:text-white'
+        ? 'text-primary-500'
+        : 'text-gray-300 hover:text-primary-500'
     }`;
   };
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Create Token', href: '/#mint' },
-    { name: 'New tokens', href: '/new-tokens' },
+    { name: 'Create', href: '/#mint' },
+    { name: 'Tokens', href: '/new-tokens' },
     { name: 'Swap', href: '/swap' },
-    { name: 'Referral Program', href: '/referral' },
+    { name: 'Refer', href: '/referral' },
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-dark-50/95 backdrop-blur-md border-b border-dark-200">
-      {/* Ensure header content sits above the backdrop */}
+    <header className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-sm border-b border-primary-500/20">
       <div className="w-full px-4 md:px-6 py-3 md:py-4 relative z-50">
         <div className="flex items-center justify-between gap-2 md:gap-4">
-          {/* Logo - Compact on mobile */}
+          {/* Logo */}
           <a href="/" className="block flex-shrink-0">
-            <div className="flex flex-col">
-              <h1 className="text-base md:text-lg font-semibold text-white leading-tight">Chad Mint</h1>
-              <p className="hidden sm:block text-xs text-gray-400">Make the next moon shot</p>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary-500 rounded-sm flex-shrink-0"></div>
+              <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter">
+                ChadMint
+              </h1>
             </div>
           </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6 flex-1 justify-center px-8">
+          <nav className="hidden md:flex items-center space-x-8 flex-1 justify-center px-8">
             {navLinks.map((link) => (
               <a
                 key={link.name}
@@ -135,7 +128,7 @@ export function Header() {
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden p-2 text-gray-300 hover:text-white hover:bg-dark-200 rounded-lg transition-colors focus:outline-none flex-shrink-0"
+              className="md:hidden p-2 text-primary-500 hover:bg-primary-500/10 rounded-none transition-colors focus:outline-none flex-shrink-0 border border-primary-500/30"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Toggle menu"
             >
@@ -155,16 +148,14 @@ export function Header() {
         {/* Mobile Menu Content */}
         {isMobileMenuOpen && (
           <>
-            {/* Backdrop: Fixed full screen overlay to blur the rest of the content */}
             <div
-              className="fixed inset-0 top-[60px] bg-black/80 backdrop-blur-md z-40 md:hidden"
+              className="fixed inset-0 top-[60px] bg-black/80 backdrop-blur-sm z-40 md:hidden"
               onClick={() => setIsMobileMenuOpen(false)}
               aria-hidden="true"
             />
 
-            {/* Menu Dropdown: Solid background, no transparency */}
             <div className="absolute top-full left-0 right-0 p-3 md:hidden z-50 mt-1">
-              <div className="bg-dark-100 border border-dark-200 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-fadeIn">
+              <div className="bg-dark-200 border border-primary-500/30 rounded-none shadow-2xl shadow-black/50 overflow-hidden animate-fadeIn">
                 <nav className="flex flex-col p-2 space-y-1">
                   {navLinks.map((link) => (
                     <a
