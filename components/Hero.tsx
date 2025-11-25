@@ -41,7 +41,7 @@ export function Hero() {
 
           {/* Right Column: Hero Image & Mobile Button */}
           <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="relative w-[280px] h-[280px] md:w-[650px] md:h-[650px]">
+            <div className="relative w-[350px] h-[350px] md:w-[650px] md:h-[650px]">
               <div className="absolute inset-0 bg-primary-500/10 blur-[80px] rounded-full mix-blend-screen"></div>
               <Image
                 src="/Chadmint_logo1.png"
