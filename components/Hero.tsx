@@ -47,6 +47,7 @@ export function Hero() {
                 src="/Chadmint_logo1.png"
                 alt="Chad Mint Logo"
                 fill
+                sizes="(max-width: 768px) 350px, 650px"
                 className="object-contain animate-float relative"
                 priority
               />

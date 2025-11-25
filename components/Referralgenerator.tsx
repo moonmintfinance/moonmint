@@ -38,7 +38,7 @@ export function ReferralGenerator() {
             Referral Program
           </h1>
           <p className="text-xl text-gray-400">
-            We offer the highest referral rewards on in the galaxy. Earn 55% of fees from every token minted with your link!
+            We have the best referral rewards in the galaxy. Earn 55% of fees from every token minted with your link!
           </p>
         </div>
 
