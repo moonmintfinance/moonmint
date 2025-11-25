@@ -7,11 +7,11 @@ The professional way to launch Solana tokens. No code required.
 **Official Links**
 
 To use the officialChad Mint site which runs off the main branch 
-of this repo visit https://www.moonmint.finance/
+of this repo visit https://www.chadmint.fun/
 
-To join our community on telegram visit https://t.me/moonmint_finance
+To join our community on telegram visit https://t.me/chad_mint
 
-To follow us on X visit https://x.com/MoonMintFinance
+To follow us on X visit https://x.com/chad_mint_team
 
 ---
 

@@ -14,11 +14,11 @@ export function Hero() {
               <h1 className="text-4xl md:text-7xl font-bold text-white leading-tight mb-2 md:mb-4">
                 Chad Mint
                 <span className="block text-primary-400 text-2xl md:text-5xl mt-2">
-                  Launch faster
+                  Don't just launch. Dominate.
                 </span>
               </h1>
               <p className="text-base md:text-xl text-gray-400 leading-relaxed max-w-lg mx-auto md:mx-0">
-                Mint Solana tokens in seconds. Swap your favourite coins, and get paid to refer your friends.
+                Become the based dev your community wants.
               </p>
             </div>
 

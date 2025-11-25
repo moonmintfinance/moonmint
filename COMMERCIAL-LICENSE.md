@@ -168,7 +168,7 @@ Except for your payment obligations,Chad Mint Finance's total liability under th
 
 ## How to Purchase
 
-Email: contact@moonmint.finance with:
+Email: contact@chadmint.fun with:
 - Your deployment URL
 - Expected monthly token volume
 - Primary use case
@@ -200,7 +200,7 @@ Upon activation, you will receive a unique license key that must be:
 ## Term & Renewal
 
 - Initial term: 12 months from license activation date
-- Renewal: Contact contact@moonmint.finance 30 days before expiration
+- Renewal: Contact contact@chadmint.fun 30 days before expiration
 - At renewal fees may be adjusted atChad Mint Finance's discretion
 - After 2029-01-01, no new commercial licenses will be issued
 
