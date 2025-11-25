@@ -14,7 +14,7 @@ export function Hero() {
               <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-3 md:mb-4">
                 Chad Mint
                 <span className="block text-primary-400 text-3xl md:text-5xl mt-2">
-                  Launch faster.
+                  Launch faster
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-gray-400 leading-relaxed max-w-lg mx-auto md:mx-0">

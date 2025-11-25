@@ -15,7 +15,7 @@ export default function TradePage() {
             Chad Mint Swap
           </h1>
           <p className="text-gray-400">
-            Instantly swap of any Solana token
+            Instantly swap any Solana token
           </p>
         </div>
 

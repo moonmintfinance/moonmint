@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui'; // Added import
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { generateReferralLink } from '@/utils/referral';
 import { SERVICE_FEE_BASE_SOL, SERVICE_FEE_AUTHORITY_SOL } from '@/lib/constants';
 
@@ -38,7 +38,7 @@ export function ReferralGenerator() {
             Referral Program
           </h1>
           <p className="text-xl text-gray-400">
-            We offer the highest referral rewards on Solana. Earn 55% of fees from every token minted with your link!
+            We offer the highest referral rewards on in the galaxy. Earn 55% of fees from every token minted with your link!
           </p>
         </div>
 
