@@ -4,12 +4,6 @@ import { useEffect, useState } from 'react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
 
-/**
- * Wallet button wrapper that only renders after client hydration
- * This prevents hydration mismatches with the Solana wallet adapter
- *
- * ✅ FIXED: Better handling of connection state after wallet app switch
- */
 export function WalletButton() {
   const [isMounted, setIsMounted] = useState(false);
   const { connected, connecting, publicKey } = useWallet();
@@ -32,14 +26,33 @@ export function WalletButton() {
   // Render loading state during SSR, render button after hydration
   if (!isMounted) {
     return (
-      <div className="h-10 px-4 bg-dark-200 rounded-lg animate-pulse flex items-center justify-center">
-        <span className="text-xs text-gray-400">Initializing wallet</span>
+      <div className="h-10 px-3 md:px-4 bg-dark-200 rounded-lg animate-pulse flex items-center justify-center max-w-[120px] md:max-w-none">
+        <span className="text-xs text-gray-400 truncate">Initializing</span>
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="relative max-w-[120px] md:max-w-none">
+      <style>{`
+        .wallet-adapter-button {
+          max-width: 120px !important;
+          padding: 0.5rem 0.75rem !important;
+          font-size: 0.875rem !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          border-radius: 0.5rem !important;
+        }
+        
+        @media (min-width: 768px) {
+          .wallet-adapter-button {
+            max-width: none !important;
+            padding: 0.5rem 1rem !important;
+            font-size: 1rem !important;
+          }
+        }
+      `}</style>
       <WalletMultiButton />
     </div>
   );

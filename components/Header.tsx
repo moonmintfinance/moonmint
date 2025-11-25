@@ -78,7 +78,7 @@ export function Header() {
 
     if (isMobile) {
       // Mobile styles - darker background when active, no transparency issues
-      return `block w-full py-3 px-4 rounded-xl text-base font-medium transition-all duration-200 ${
+      return `block w-full py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
         isCurrentPage
           ? 'bg-primary-500/20 text-primary-400 border border-primary-500/20'
           : 'text-gray-300 hover:bg-dark-200 hover:text-white'
@@ -104,19 +104,18 @@ export function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-dark-50/95 backdrop-blur-md border-b border-dark-200">
       {/* Ensure header content sits above the backdrop */}
-      <div className="container mx-auto px-6 py-4 relative z-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <a href="/" className="block">
-              <div className="flex flex-col">
-                <h1 className="text-lg font-semibold text-white">Chad Mint</h1>
-                <p className="text-xs text-gray-400">Make the next moon shot</p>
-              </div>
-            </a>
-          </div>
+      <div className="w-full px-4 md:px-6 py-3 md:py-4 relative z-50">
+        <div className="flex items-center justify-between gap-2 md:gap-4">
+          {/* Logo - Compact on mobile */}
+          <a href="/" className="block flex-shrink-0">
+            <div className="flex flex-col">
+              <h1 className="text-base md:text-lg font-semibold text-white leading-tight">Chad Mint</h1>
+              <p className="hidden sm:block text-xs text-gray-400">Make the next moon shot</p>
+            </div>
+          </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-6 flex-1 justify-center px-8">
             {navLinks.map((link) => (
               <a
                 key={link.name}
@@ -129,23 +128,23 @@ export function Header() {
           </nav>
 
           {/* Wallet & Mobile Menu Toggle */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="wallet-button-container">
               <WalletButton />
             </div>
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden p-2 text-gray-300 hover:text-white hover:bg-dark-200 rounded-lg transition-colors focus:outline-none"
+              className="md:hidden p-2 text-gray-300 hover:text-white hover:bg-dark-200 rounded-lg transition-colors focus:outline-none flex-shrink-0"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               )}
@@ -158,14 +157,14 @@ export function Header() {
           <>
             {/* Backdrop: Fixed full screen overlay to blur the rest of the content */}
             <div
-              className="fixed inset-0 top-[72px] bg-black/80 backdrop-blur-md z-40 md:hidden"
+              className="fixed inset-0 top-[60px] bg-black/80 backdrop-blur-md z-40 md:hidden"
               onClick={() => setIsMobileMenuOpen(false)}
               aria-hidden="true"
             />
 
             {/* Menu Dropdown: Solid background, no transparency */}
-            <div className="absolute top-full left-0 right-0 p-4 md:hidden z-50">
-              <div className="bg-dark-100 border border-dark-200 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden animate-fadeIn">
+            <div className="absolute top-full left-0 right-0 p-3 md:hidden z-50 mt-1">
+              <div className="bg-dark-100 border border-dark-200 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-fadeIn">
                 <nav className="flex flex-col p-2 space-y-1">
                   {navLinks.map((link) => (
                     <a
