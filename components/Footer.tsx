@@ -58,7 +58,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
-                  href="https://x.com/MoonMintFinance"
+                  href="https://x.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors flex items-center"
@@ -69,7 +69,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://t.me/+cumdynQc6DExMDBh"
+                  href="https://t.me/chad_mint"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors flex items-center"
@@ -80,7 +80,7 @@ export function Footer() {
               </li>
               <li>
                   <a
-                  href="https://github.com/moonmintfinance/moonmint/"
+                  href="https://github.com/chadmintteam/chadmint"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors flex items-center"
