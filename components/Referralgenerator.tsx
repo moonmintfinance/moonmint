@@ -45,6 +45,61 @@ export function ReferralGenerator() {
         {/* Main Content */}
         <div className="space-y-8">
 
+          {/* How It Works - Now always visible */}
+          <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl p-8">
+            <h2 className="text-lg font-semibold text-white mb-6">How It Works</h2>
+
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-primary-400 font-bold">1</span>
+                </div>
+                <div>
+                  <h3 className="font-medium text-white mb-1">Get Your Link</h3>
+                  <p className="text-sm text-gray-400">
+                    Connect your wallet to get your referral link, which has your public wallet address embedded in it
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-primary-400 font-bold">2</span>
+                </div>
+                <div>
+                  <h3 className="font-medium text-white mb-1">Share Your Link</h3>
+                  <p className="text-sm text-gray-400">
+                    Give your referral link to friends, or post it on social media
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-primary-400 font-bold">3</span>
+                </div>
+                <div>
+                  <h3 className="font-medium text-white mb-1">They Create a Token</h3>
+                  <p className="text-sm text-gray-400">
+                    Anyone who uses your link and creates a token pays a minting fee
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-primary-400 font-bold">4</span>
+                </div>
+                <div>
+                  <h3 className="font-medium text-white mb-1">Get Paid Instantly</h3>
+                  <p className="text-sm text-gray-400">
+                     55% of the minting fee goes directly to your wallet address that is embedd in your referral link
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Your Wallet Section - Now conditional */}
           {connected && publicKey && (
             <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl p-8">
@@ -79,12 +134,6 @@ export function ReferralGenerator() {
                     {referralLink}
                   </p>
                 </div>
-
-                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
-                  <p className="text-sm text-purple-200">
-                    💡 <span className="font-medium">Pro tip:</span> Share this link on social media, Discord, or with your network to start earning!
-                  </p>
-                </div>
               </>
             ) : (
               <>
@@ -105,61 +154,6 @@ export function ReferralGenerator() {
                 </div>
               </>
             )}
-          </div>
-
-          {/* How It Works - Now always visible */}
-          <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 rounded-xl p-8">
-            <h2 className="text-lg font-semibold text-white mb-6">How It Works</h2>
-
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-primary-400 font-bold">1</span>
-                </div>
-                <div>
-                  <h3 className="font-medium text-white mb-1">Share Your Link</h3>
-                  <p className="text-sm text-gray-400">
-                    Give your referral link to friends, colleagues, or post it on social media
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-primary-400 font-bold">2</span>
-                </div>
-                <div>
-                  <h3 className="font-medium text-white mb-1">They Create a Token</h3>
-                  <p className="text-sm text-gray-400">
-                    Anyone who uses your link and creates a token will automatically pay you a commission
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-primary-400 font-bold">3</span>
-                </div>
-                <div>
-                  <h3 className="font-medium text-white mb-1">Get Paid Instantly</h3>
-                  <p className="text-sm text-gray-400">
-                    55% of the service fee goes directly to your wallet when the token is created
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-primary-400 font-bold">4</span>
-                </div>
-                <div>
-                  <h3 className="font-medium text-white mb-1">Verify on Solscan</h3>
-                  <p className="text-sm text-gray-400">
-                    All transactions are on-chain and auditable on Solscan
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
