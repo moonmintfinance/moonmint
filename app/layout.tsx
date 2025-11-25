@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Michroma } from 'next/font/google';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { RootProvider } from '@/components/RootProvider';
 
-const inter = Inter({ subsets: ['latin'] });
+const michroma = Michroma({
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-michroma',
+});
 
 export const metadata: Metadata = {
   title: 'Solana Token Minter - Professional Coin Creation Platform',
@@ -31,7 +36,8 @@ export default function RootLayout({
           defer
         />
       </head>
-      <body className={`${inter.className} bg-gradient-dark min-h-screen text-white`}>
+      {/* 3. Apply the font class to the body */}
+      <body className={`${michroma.className} bg-gradient-dark min-h-screen text-white`}>
         <RootProvider>{children}</RootProvider>
         <Analytics />
       </body>
