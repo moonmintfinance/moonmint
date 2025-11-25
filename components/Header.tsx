@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletButton } from '@/components/WalletButton';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 export function Header() {
@@ -97,10 +98,24 @@ export function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-sm border-b border-primary-500/20">
       <div className="w-full px-4 md:px-6 py-3 md:py-4 relative z-50">
         <div className="flex items-center justify-between gap-2 md:gap-4">
-          {/* Logo */}
-          <a href="/" className="block flex-shrink-0">
+          {/* Logo with Subtle Neon Glow */}
+          <a href="/" className="block flex-shrink-0 group">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary-500 rounded-sm flex-shrink-0"></div>
+              {/* Logo Container with Subtle Glow */}
+              <div className="w-8 h-8 md:w-10 md:h-10 relative flex-shrink-0">
+                {/* Subtle glow on hover */}
+                <div
+                  className="absolute inset-0 bg-primary-500 rounded-full opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-300"
+                ></div>
+                {/* Logo Image */}
+                <Image
+                  src="/Chadmint_logo1.png"
+                  alt="Chad Mint Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </div>
               <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter">
                 ChadMint
               </h1>

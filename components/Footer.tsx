@@ -1,5 +1,6 @@
 import { FaTelegram, FaGithub } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
+import Image from 'next/image';
 
 export function Footer() {
   return (
@@ -8,12 +9,25 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Column 1 */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 bg-primary-500 rounded-sm"></div>
+            <div className="flex items-center gap-2 mb-2 group">
+              {/* Logo with Subtle Neon Glow */}
+              <div className="w-6 h-6 relative flex-shrink-0">
+                {/* Subtle glow on hover */}
+                <div
+                  className="absolute inset-0 bg-primary-500 rounded-full opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-300"
+                ></div>
+                {/* Logo Image */}
+                <Image
+                  src="/Chadmint_logo1.png"
+                  alt="Chad Mint Logo"
+                  fill
+                  className="object-contain"
+                />
+              </div>
               <h3 className="font-black text-white uppercase tracking-tighter">ChadMint</h3>
             </div>
             <p className="text-sm text-gray-400 font-mono">
-              Deploy alpha in seconds
+              Mint. Alpha. Snipe.
             </p>
           </div>
 
