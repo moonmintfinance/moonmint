@@ -49,7 +49,7 @@ body {
   box-shadow: 0 0 10px rgba(57,255,20,0.5);
 }
 
-/* Wallet Adapter Overrides */
+/* Wallet Adapter Overrides - Works for Unified Wallet Kit */
 .wallet-adapter-button {
   @apply bg-primary-500 hover:bg-primary-600 transition-all text-black font-bold !important;
 }
@@ -60,6 +60,7 @@ body {
 
 .wallet-adapter-modal-wrapper {
   @apply bg-dark-100/95 backdrop-blur-sm !important;
+  z-index: 50 !important;
 }
 
 .wallet-adapter-modal {
