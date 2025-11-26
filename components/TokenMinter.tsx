@@ -149,14 +149,75 @@ export function TokenMinter() {
           config: flowState.config,
         });
 
-        console.log('✅ Meteora launch successful:', result);
-        toast.success('✅ Token launched on Meteora!', { id: loadingToast });
+        console.log('✅ Meteora launch result:', result);
 
-        const signature = (result as any).signature || (result as any).txId || '';
+        // ========================================================================
+        // 🔧 FIX: Sign and send the unsigned transactions to the bonding curve
+        // ========================================================================
+
+        // STEP 1: Sign all transactions with wallet
+        console.log(`📝 Signing ${result.transactions.length} transaction(s)...`);
+        const signedTxs = await signAllTransactions!(result.transactions);
+
+        // STEP 2: Add mint keypair signature to the FIRST transaction (pool creation)
+        // The first transaction is the pool creation TX, which needs both:
+        // - Wallet signature (from signAllTransactions above)
+        // - Mint keypair signature (for creating the new mint account)
+        console.log('🔑 Adding mint keypair signature to pool creation transaction...');
+        signedTxs[0].partialSign(result.mintKeypair);
+
+        // STEP 3: Send transactions to the network
+        console.log(`📤 Sending ${signedTxs.length} transaction(s) to network...`);
+        const txSignatures: string[] = [];
+
+        for (let i = 0; i < signedTxs.length; i++) {
+          try {
+            const signature = await connection.sendRawTransaction(
+              signedTxs[i].serialize(),
+              {
+                skipPreflight: false,
+                preflightCommitment: 'confirmed',
+              }
+            );
+            txSignatures.push(signature);
+            console.log(`✅ Transaction ${i + 1} sent:`, signature);
+          } catch (txError) {
+            console.error(`❌ Error sending transaction ${i + 1}:`, txError);
+            throw txError;
+          }
+        }
+
+        // STEP 4: Confirm transactions
+        console.log('⏳ Confirming transaction(s)...');
+        const latestBlockhash = await connection.getLatestBlockhash();
+
+        for (let i = 0; i < txSignatures.length; i++) {
+          try {
+            await connection.confirmTransaction(
+              {
+                signature: txSignatures[i],
+                blockhash: latestBlockhash.blockhash,
+                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+              },
+              'confirmed'
+            );
+            console.log(`✅ Transaction ${i + 1} confirmed`);
+          } catch (confirmError) {
+            console.error(`⚠️  Error confirming transaction ${i + 1}:`, confirmError);
+            // Don't fail - transaction may still succeed even if confirmation fails
+          }
+        }
+
+        console.log('✅ Meteora token launched successfully!');
+
+        // STEP 5: Use the primary transaction signature (pool creation)
+        const primarySignature = txSignatures[0];
+
+        toast.success('✅ Token launched on Meteora!', { id: loadingToast });
 
         goToSuccess({
           mintAddress: result.mintAddress,
-          signature: signature,
+          signature: primarySignature,
           launchType: LaunchType.METEORA,
           poolAddress: result.poolAddress,
         });
