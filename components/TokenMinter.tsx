@@ -214,8 +214,8 @@ export function TokenMinter() {
           publicKey.toBase58()
         );
 
-        console.log('✅ Metadata JSON uploaded:', metadataUri);
-        toast.success('Metadata JSON created!', { id: metadataUploadToast });
+        console.log('✅ Metadata JSON created:', metadataUri);
+        toast.success('Metadata created!', { id: metadataUploadToast });
       } catch (metadataError) {
         console.error('❌ Metadata JSON upload failed:', metadataError);
         toast.error('Failed to create metadata JSON', {
@@ -230,7 +230,7 @@ export function TokenMinter() {
       // =========================================================================
       if (launchType === LaunchType.METEORA) {
         // =====================================================================
-        // METEORA BONDING CURVE LAUNCH - FIXED SIGNING ORDER
+        // METEORA BONDING CURVE LAUNCH - FIXED SIGNING ORDER ✅
         // =====================================================================
         console.log('🚀 Launching on Meteora bonding curve...');
 
@@ -257,47 +257,51 @@ export function TokenMinter() {
             : undefined,
         });
 
-        console.log('✍️ Signing transactions with Phantom (correct order per Phantom docs)...');
+        console.log('✅ Meteora launch service returned transactions:', result.transactions.length);
 
-        // ✅ CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
-        // "Sign with Phantom first using signTransaction, then collect signatures from other signers"
-        if (!signTransaction) {
-          throw new Error('Wallet does not support transaction signing');
+        console.log('✍️ Signing transactions with Phantom wallet...');
+
+        // ✅ CRITICAL FIX: Use signAllTransactions for multiple transactions
+        // This ensures the user gets prompted for ALL signatures in one wallet popup
+        if (!signAllTransactions) {
+          throw new Error('Wallet does not support signing multiple transactions');
         }
 
         try {
+          console.log(`\n📝 Preparing ${result.transactions.length} transaction(s) for signing...`);
+
+          // ✅ STEP 1: Sign ALL transactions at once with signAllTransactions
+          console.log('  → Signing all transactions with Phantom wallet...');
+          const signedTransactions = await signAllTransactions(result.transactions);
+          console.log(`  ✅ All ${signedTransactions.length} transactions signed by Phantom`);
+
+          // ✅ STEP 2: Add mint keypair signature to POOL CREATION TX ONLY (index 0)
+          // The pool creation transaction needs the mint keypair signature
+          // The swap/buy transaction (index 1) only needs Phantom's signature
+          console.log('  → Adding mint keypair signature to pool creation transaction...');
+          signedTransactions[0].partialSign(result.mintKeypair);
+          console.log(`  ✅ Mint keypair signature added to transaction 1`);
+
+          // ✅ STEP 3: Send both fully signed transactions
           const signatures: string[] = [];
 
-          // Process each transaction in order
-          for (let i = 0; i < result.transactions.length; i++) {
-            const tx = result.transactions[i];
+          for (let i = 0; i < signedTransactions.length; i++) {
+            const tx = signedTransactions[i];
+            const txType = i === 0 ? 'pool creation' : 'swap/buy';
 
-            console.log(`\n📝 Transaction ${i + 1}/${result.transactions.length}:`);
-
-            // ✅ STEP 1: Sign with Phantom FIRST (per Phantom docs)
-            console.log('  → Signing with Phantom wallet...');
-            const signedByPhantom = await signTransaction(tx);
-
-            // ✅ STEP 2: Then collect signatures from other signers (mint keypair)
-            // For pool creation, also need mint keypair signature
-            console.log('  → Adding mint keypair signature...');
-            signedByPhantom.partialSign(result.mintKeypair);
-
-            // ✅ STEP 3: Send the fully signed transaction
-            console.log('  → Sending to network...');
+            console.log(`  → Sending ${txType} transaction (${i + 1}/${signedTransactions.length})...`);
             const sig = await connection.sendRawTransaction(
-              signedByPhantom.serialize(),
+              tx.serialize(),
               {
                 skipPreflight: false,
                 preflightCommitment: 'confirmed',
               }
             );
             signatures.push(sig);
-            console.log(`  ✅ Sent: ${sig}`);
+            console.log(`    ✅ Sent: ${sig}`);
           }
 
           // ✅ FIX: Only confirm on server-side, NOT on client
-          // Client-side connection.confirmTransaction() uses WebSocket which fails
           console.log('✅ All transactions sent successfully!');
 
           // Confirm via server-side API only (no WebSocket)
@@ -315,8 +319,10 @@ export function TokenMinter() {
 
           toast.success('Token launched on Meteora bonding curve!', {
             id: loadingToast,
+            duration: 5000,
           });
 
+          // ✅ Redirect with proper data
           setMintResult({
             mintAddress: result.mintAddress,
             signature: signatures[0],

@@ -99,13 +99,14 @@ export class MeteoraLaunchService {
   /**
    * Launch token on Meteora bonding curve
    *
-   * CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
-   * "Sign with Phantom first using signTransaction, then collect signatures from other signers"
+   * Returns 2 transactions:
+   * 1. Pool creation transaction (requires mint keypair signature)
+   * 2. Swap/buy transaction (Phantom signature only)
    *
-   * This method:
-   * 1. Creates separate transactions (pool creation + swap)
-   * 2. Returns them for Phantom to sign FIRST
-   * 3. Returns the mint keypair for client to sign AFTER
+   * Client should:
+   * 1. Call signAllTransactions() with both transactions
+   * 2. Add mint keypair signature to transaction[0] only
+   * 3. Send both fully signed transactions
    */
   async launchToken(params: MeteoraLaunchParams): Promise<MeteoraLaunchResult> {
     this.validateConfig();
@@ -180,9 +181,7 @@ export class MeteoraLaunchService {
       console.log('✅ Pool transactions created by SDK');
 
       // ========================================================================
-      // CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
-      // "Sign with Phantom first using signTransaction, then collect signatures from other signers"
-      // Do NOT pre-sign with keypairs - let Phantom handle signing first
+      // Prepare transactions for client signing
       // ========================================================================
       const txsToSign: Transaction[] = [];
       const { blockhash } = await this.connection.getLatestBlockhash(
@@ -208,12 +207,12 @@ export class MeteoraLaunchService {
       }
 
       console.log(
-        `✅ Prepared ${txsToSign.length} transaction(s) for Phantom signing`
+        `✅ Prepared ${txsToSign.length} transaction(s) for client signing`
       );
 
       return {
         transactions: txsToSign,
-        mintKeypair,  // Return keypair for client to sign AFTER Phantom
+        mintKeypair,  // Client will sign this on pool creation tx only
         mintAddress: mint.toBase58(),
         poolAddress: poolAddress.toBase58(),
       };
