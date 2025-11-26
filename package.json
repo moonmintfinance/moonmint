@@ -15,6 +15,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@jup-ag/jup-mobile-adapter": "^0.0.2",
     "@jup-ag/wallet-adapter": "^0.2.6",
     "@meteora-ag/dynamic-bonding-curve-sdk": "^1.4.6",
     "@project-serum/anchor": "^0.26.0",
