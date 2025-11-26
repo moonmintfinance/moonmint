@@ -74,7 +74,7 @@ export function HotTokens() {
         {tokens.map((token, index) => (
           <Link
             key={token.baseMint}
-            href={`/token/${token.baseMint}`}
+            href={`/pools/${token.baseMint}`}
             className="group block"
           >
             <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 flex flex-col h-full">
