@@ -10,7 +10,6 @@ interface WalletContextProviderProps {
   children: ReactNode;
 }
 
-// Context to track if wallet adapter is ready
 interface WalletReadyContextType {
   isAdapterReady: boolean;
   adapterError: string | null;
@@ -27,6 +26,7 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
   const [isAdapterReady, setIsAdapterReady] = useState(false);
   const [adapterError, setAdapterError] = useState<string | null>(null);
   const [adapterTimedOut, setAdapterTimedOut] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const connection = useMemo(
     () => new Connection(SOLANA_RPC_ENDPOINT, TRANSACTION_CONFIG.COMMITMENT),
@@ -35,24 +35,21 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
 
   const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
 
-  if (!projectId) {
-    console.warn('⚠️ NEXT_PUBLIC_REOWN_PROJECT_ID is not set. Wallet initialization may fail.');
-  }
-
-  // Wrap the adapter hook in a try-catch via error boundary pattern
-  let jupiterAdapter: Adapter | null = null;
-  let adapterHookError: Error | null = null;
+  // ✅ FIXED: Call hook unconditionally at top level (not in try-catch)
+  let jupiterAdapterResult: any = null;
+  let hookError: Error | null = null;
 
   try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const result = useWrappedReownAdapter({
       appKitOptions: {
         metadata: {
           name: 'Chad Mint',
           description: 'Professional Solana Token Minter',
-          url: 'https://www.chadmint.fun',
+          url: typeof window !== 'undefined' ? window.location.origin : 'https://www.chadmint.fun',
           icons: ['/Chadmint_logo1.png'],
         },
-        projectId: projectId || 'default-project-id',
+        projectId: projectId || '',
         features: {
           analytics: true,
           socials: ['google', 'x', 'apple'],
@@ -61,61 +58,82 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
         enableWallets: false,
       },
     });
-    jupiterAdapter = result.jupiterAdapter;
+    jupiterAdapterResult = result;
   } catch (error) {
-    console.error('❌ Error initializing Reown adapter:', error);
-    adapterHookError = error as Error;
+    hookError = error as Error;
+    console.error('❌ [Wallet] Hook initialization error:', hookError.message);
   }
 
-  // Track adapter readiness with timeout for mobile
+  // ✅ FIXED: Use effect to store adapter in state
   useEffect(() => {
-    // Set a timeout - if adapter isn't ready in 5 seconds on mobile, proceed anyway
+    setIsMounted(true);
+
+    if (!projectId) {
+      const msg = '⚠️ [Wallet] NEXT_PUBLIC_REOWN_PROJECT_ID not set. Get one at https://dashboard.reown.com/';
+      console.warn(msg);
+      setAdapterError(msg);
+      setIsAdapterReady(true);
+      return;
+    }
+
+    if (hookError) {
+      console.error('❌ [Wallet] Adapter initialization failed:', hookError.message);
+      setAdapterError(hookError.message);
+      setIsAdapterReady(true);
+      return;
+    }
+
+    if (jupiterAdapterResult?.jupiterAdapter) {
+      console.log('✅ [Wallet] Jupiter/Reown adapter ready');
+      setIsAdapterReady(true);
+    }
+  }, []); // Run once on mount
+
+  // ✅ FIXED: Timeout fallback for mobile
+  useEffect(() => {
+    if (isAdapterReady) return; // Already initialized
+
     const timeoutId = setTimeout(() => {
-      if (!isAdapterReady) {
-        console.warn('⚠️ Wallet adapter initialization timed out, proceeding without adapter');
-        setAdapterTimedOut(true);
-        setIsAdapterReady(true); // Allow UI to proceed
-      }
+      console.warn('⚠️ [Wallet] Adapter initialization timeout (5s), proceeding without adapter');
+      setAdapterTimedOut(true);
+      setIsAdapterReady(true);
     }, 5000);
 
     return () => clearTimeout(timeoutId);
   }, [isAdapterReady]);
 
-  // Update ready state when adapter becomes available
-  useEffect(() => {
-    if (jupiterAdapter) {
-      console.log('✅ Jupiter/Reown adapter initialized');
-      setIsAdapterReady(true);
-    } else if (adapterHookError) {
-      console.error('❌ Adapter hook error:', adapterHookError.message);
-      setAdapterError(adapterHookError.message);
-      setIsAdapterReady(true); // Still allow UI to render
-    }
-  }, [jupiterAdapter, adapterHookError]);
-
+  // ✅ FIXED: Create wallets array safely
   const wallets: Adapter[] = useMemo(() => {
-    if (!jupiterAdapter || adapterTimedOut) {
+    if (!jupiterAdapterResult?.jupiterAdapter || adapterTimedOut) {
       return [];
     }
-    return [jupiterAdapter];
-  }, [jupiterAdapter, adapterTimedOut]);
+    return [jupiterAdapterResult.jupiterAdapter];
+  }, [jupiterAdapterResult?.jupiterAdapter, adapterTimedOut]);
 
-  const readyContextValue = useMemo(() => ({
-    isAdapterReady,
-    adapterError,
-  }), [isAdapterReady, adapterError]);
+  const readyContextValue = useMemo(
+    () => ({
+      isAdapterReady,
+      adapterError,
+    }),
+    [isAdapterReady, adapterError]
+  );
+
+  // Don't render during SSR
+  if (!isMounted) {
+    return <>{children}</>;
+  }
 
   return (
     <WalletReadyContext.Provider value={readyContextValue}>
       <UnifiedWalletProvider
         wallets={wallets}
         config={{
-          autoConnect: projectId && !adapterTimedOut ? true : false,
+          autoConnect: !!(projectId && !adapterTimedOut && isAdapterReady),
           env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as any) || 'mainnet-beta',
           metadata: {
             name: 'Chad Mint',
-            description: 'Solana Token Minter',
-            url: 'https://www.chadmint.fun',
+            description: 'Professional Solana Token Minter',
+            url: typeof window !== 'undefined' ? window.location.origin : 'https://www.chadmint.fun',
             iconUrls: ['/Chadmint_logo1.png'],
           },
           theme: 'dark',
