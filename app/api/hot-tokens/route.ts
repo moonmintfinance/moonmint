@@ -23,7 +23,9 @@ if (!DBC_CONFIG_KEY) {
   console.error('❌ NEXT_PUBLIC_Jupiter_Studio_Config_key is not set in environment variables');
 }
 
-const SOLANA_RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
+const SOLANA_RPC_ENDPOINT = process.env.HELIUS_API_KEY
+  ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+  : process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
 
 /**
  * Cache implementation for hot tokens
