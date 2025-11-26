@@ -13,8 +13,8 @@ const michroma = Michroma({
 });
 
 export const metadata: Metadata = {
-  title: 'Solana Token Minter - Professional Coin Creation Platform',
-  description: 'Create and mint your own Solana tokens with atomic transaction security',
+  title: 'Chad Mint',
+  description: 'Don\'t just launch. Dominate.',
   icons: {
     icon: '/Chadmint_logo1.png',
     apple: '/Chadmint_logo1.png',

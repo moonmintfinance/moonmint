@@ -59,7 +59,8 @@ export class MeteoraLaunchService {
   ) {}
 
   /**
-   * Initialize Meteora DBC Client with proper typing
+   * Initialize Meteora DBC Client
+   * ✅ FIXED: DynamicBondingCurveClient expects (connection, commitment) not a provider
    */
   private async initClient() {
     if (
@@ -70,22 +71,16 @@ export class MeteoraLaunchService {
       throw new Error('Wallet not connected');
     }
 
-    // Create properly typed anchor wallet
-    const anchorWallet = {
-      publicKey: this.wallet.publicKey,
-      signTransaction: this.wallet.signTransaction.bind(this.wallet),
-      signAllTransactions: this.wallet.signAllTransactions.bind(this.wallet),
-    };
-
     try {
+      // ✅ DynamicBondingCurveClient only needs connection and commitment
+      // It handles provider creation internally
       this.client = new DynamicBondingCurveClient(
         this.connection,
-        // @ts-ignore
-        anchorWallet
+        TRANSACTION_CONFIG.COMMITMENT
       );
-      console.log('✅ Meteora DBC Client initialized');
+      console.log('✅ Meteora DBC Client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Meteora client:', error);
+      console.error('❌ Failed to initialize Meteora client:', error);
       throw new Error('Failed to initialize Meteora DBC Client');
     }
   }
