@@ -1,8 +1,9 @@
 'use client';
 
-import { ReactNode, useMemo } from 'react'; // Added useMemo
+import { ReactNode, useMemo } from 'react';
 import { UnifiedWalletProvider, Adapter } from '@jup-ag/wallet-adapter';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
@@ -33,13 +34,16 @@ const WalletNotification = {
 };
 
 export function WalletContextProvider({ children }: WalletContextProviderProps) {
-  const wallets: Adapter[] = [];
+  const wallets: Adapter[] = useMemo(() => {
+    return [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter()
+    ];
+  }, []);
 
-  // Create a client
   const queryClient = useMemo(() => new QueryClient(), []);
 
   return (
-    // Wrap the UnifiedWalletProvider
     <QueryClientProvider client={queryClient}>
       <UnifiedWalletProvider
         wallets={wallets}
