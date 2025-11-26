@@ -45,7 +45,13 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ConnectionProvider endpoint={endpoint} config={{ commitment: TRANSACTION_CONFIG.COMMITMENT }}>
+     <ConnectionProvider
+  endpoint={endpoint}
+  config={{
+    commitment: TRANSACTION_CONFIG.COMMITMENT as any,
+    wsEndpoint: undefined,  // ← ADD THIS LINE
+  }}
+  >
         <UnifiedWalletProvider
           wallets={[]} /* Pass an empty array to rely on standard detection */
           config={{
