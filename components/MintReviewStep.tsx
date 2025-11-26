@@ -5,7 +5,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { TokenMetadata, MintConfig, LaunchType } from '@/types/token';
 
 interface MintReviewStepProps {
-  metadata: Partial<TokenMetadata>; // ✅ FIXED: Use Partial since it comes from the flow
+  metadata: Partial<TokenMetadata>;
   config: MintConfig;
   launchType: LaunchType;
   imageIpfsUri?: string;
@@ -66,7 +66,7 @@ export function MintReviewStep({
         {/* IPFS URIs Card */}
         <div className="bg-dark-100 p-4 rounded border border-dark-300 space-y-3">
           <p className="text-xs font-bold text-primary-400 uppercase tracking-wide">
-            🔗 Content on IPFS
+            Content on IPFS
           </p>
 
           {imageIpfsUri && (
@@ -89,7 +89,7 @@ export function MintReviewStep({
         {/* Network & Launch Card */}
         <div className="bg-dark-100 p-4 rounded border border-dark-300">
           <p className="text-xs font-bold text-primary-400 uppercase tracking-wide mb-3">
-            🚀 Launch Settings
+            Launch Settings
           </p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -105,13 +105,13 @@ export function MintReviewStep({
             <div className="flex justify-between">
               <span className="text-gray-400">Mint Authority:</span>
               <span className="text-white font-mono">
-                {config.mintAuthority ? 'Keep' : 'Revoke'}
+                {config.mintAuthority ? 'Retained' : 'Revoked'}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Freeze Authority:</span>
               <span className="text-white font-mono">
-                {config.freezeAuthority ? 'Keep' : 'Revoke'}
+                {config.freezeAuthority ? 'Retained' : 'Revoked'}
               </span>
             </div>
           </div>

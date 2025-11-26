@@ -84,7 +84,7 @@ export function MetadataUploadStep({
       {/* Metadata Preview */}
       <div className="bg-dark-100 p-4 rounded border border-dark-300 space-y-3">
         <div className="border-b border-dark-300 pb-3">
-          <p className="text-xs text-gray-400">📌 Token Info</p>
+          <p className="text-xs text-gray-400">Token Info</p>
           <div className="mt-2 space-y-1 text-sm">
             <p>
               <span className="text-gray-400">Name:</span>{' '}
@@ -103,7 +103,7 @@ export function MetadataUploadStep({
 
         {imageIpfsUri && (
           <div className="border-b border-dark-300 pb-3">
-            <p className="text-xs text-gray-400">🖼️ Image (from Step 1)</p>
+            <p className="text-xs text-gray-400">Image (from Step 1)</p>
             <p className="text-xs text-primary-400 font-mono break-all mt-1">{imageIpfsUri}</p>
           </div>
         )}
@@ -139,14 +139,6 @@ export function MetadataUploadStep({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Info Box */}
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-        <p className="text-blue-300 text-sm">
-          💡 <span className="font-medium">What happens next:</span> Your wallet will sign the metadata
-          creation. The JSON will be uploaded to IPFS and the URI will be used on-chain.
-        </p>
       </div>
 
       {/* Create Metadata Button */}

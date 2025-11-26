@@ -114,7 +114,7 @@ export function ImageUploadStep({
             disabled={isLoading}
             className="w-full py-3 rounded font-bold border border-primary-500/30 text-primary-500 hover:bg-primary-500/10 disabled:opacity-50 transition-all"
           >
-            ⏭️  Skip Image, Go to Metadata
+            Skip Image, Go to Metadata
           </button>
         </div>
       ) : (

@@ -291,15 +291,15 @@ export function TokenMinter() {
 
           {flowState.step !== 'form' && flowState.step !== 'success' && (
             <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-400 flex-wrap">
-              <span className={getBreadcrumbClass('form')}>✓ Form</span>
+              <span className={getBreadcrumbClass('form')}>Form</span>
               <span>→</span>
-              <span className={getBreadcrumbClass('upload-image')}>📷 Image</span>
+              <span className={getBreadcrumbClass('upload-image')}>Image</span>
               <span>→</span>
-              <span className={getBreadcrumbClass('upload-metadata')}>📄 Metadata</span>
+              <span className={getBreadcrumbClass('upload-metadata')}>Metadata</span>
               <span>→</span>
-              <span className={getBreadcrumbClass('review')}>✓ Review</span>
+              <span className={getBreadcrumbClass('review')}>Review</span>
               <span>→</span>
-              <span className={getBreadcrumbClass('minting')}>🚀 Mint</span>
+              <span className={getBreadcrumbClass('minting')}>Mint</span>
             </div>
           )}
         </div>
