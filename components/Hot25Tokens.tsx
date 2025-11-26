@@ -141,7 +141,7 @@ export function HotTokens() {
                 <div className="mb-4 space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Volume</span>
-                    <span className="text-white font-mono">{token.totalVolume.toFixed(2)} SOL</span>
+                    <span className="text-white font-mono">{parseFloat(token.totalVolume).toFixed(2)} SOL</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Liquidity</span>

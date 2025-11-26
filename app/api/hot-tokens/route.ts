@@ -83,10 +83,10 @@ interface HotToken {
   creator: string;
   progress: number;
   quoteReserve: number;
-  baseReserve: number;
+  baseReserve: string;
   sqrtPrice: string;
-  volatility: number;
-  totalVolume: number;
+  volatility: string;
+  totalVolume: string;
   hotnessScore: number;
   rank: number;
 }
