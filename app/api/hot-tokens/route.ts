@@ -237,10 +237,10 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
             creator: metrics.creator.toBase58(),
             progress: 0,
             quoteReserve: metrics.quoteReserve.toNumber() / 1e9,
-            baseReserve: metrics.baseReserve.toNumber(),
+           baseReserve: metrics.baseReserve.toString(),
             sqrtPrice: metrics.sqrtPrice.toString(),
-            volatility: metrics.volatilityAccumulator.toNumber(),
-            totalVolume: metrics.totalTradingQuoteFee.toNumber() / 1e9,
+          volatility: metrics.volatilityAccumulator.toString(),
+          totalVolume: metrics.totalTradingQuoteFee.toString(),
             hotnessScore,
             rank: 0,
           });

@@ -1,6 +1,7 @@
 /**
  * DAS API Integration for Token Metadata
  * Helius Digital Asset Standard API
+ * Uses /api/rpc proxy for secure server-side requests
  */
 
 export interface TokenMetadata {
@@ -14,22 +15,19 @@ const DEFAULT_IMAGE =
   'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23222%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E';
 
 /**
- * Fetch token metadata from DAS API (Helius)
- * Falls back to on-chain metadata if DAS is unavailable
+ * Fetch token metadata from DAS API (Helius) via RPC proxy
+ * Falls back to generated metadata if DAS is unavailable
  */
 export async function fetchTokenMetadataDAS(
   mint: string
 ): Promise<TokenMetadata> {
   try {
-    // Try to fetch from Helius DAS API if RPC is available
-    const heliusRpc = process.env.NEXT_PUBLIC_HELIUS_RPC;
+    // Get the RPC endpoint - uses /api/rpc proxy on client, direct on server
+    const rpcEndpoint = typeof window !== 'undefined'
+      ? `${window.location.origin}/api/rpc`
+      : `${process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'}`;
 
-    if (!heliusRpc) {
-      console.warn('NEXT_PUBLIC_HELIUS_RPC not set, using fallback metadata');
-      return getFallbackMetadata(mint);
-    }
-
-    const response = await fetch(heliusRpc, {
+    const response = await fetch(rpcEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
