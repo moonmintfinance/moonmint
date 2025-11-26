@@ -41,10 +41,10 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
         autoConnect: true,
         env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as WalletAdapterNetwork) || 'mainnet-beta',
         metadata: {
-          name: 'Chad Mint',
-          description: 'Professional Solana Token Minter',
-          url: typeof window !== 'undefined' ? window.location.origin : 'https://www.chadmint.fun',
-          iconUrls: ['/Chadmint_logo1.png'],
+          name: 'ChadMint',
+          description: 'ChadMint',
+          url: 'https://www.chadmint.fun',
+          iconUrls: ['https://www.chadmint.fun/Chadmint_logo1.png'],
         },
         // Hook up the notifications
         notificationCallback: WalletNotification,
