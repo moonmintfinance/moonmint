@@ -37,7 +37,6 @@ const WalletNotification = {
 };
 
 export function WalletContextProvider({ children }: WalletContextProviderProps) {
-  // 1. ADAPTERS: Explicitly allow these for mobile deep-linking
   const wallets: Adapter[] = useMemo(() => {
     return [
       new PhantomWalletAdapter(),
@@ -47,17 +46,8 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
 
   const queryClient = useMemo(() => new QueryClient(), []);
 
-  // 2. DYNAMIC ORIGIN: Essential for the redirect handshake
-  const clusterDomain = useMemo(() =>
-    typeof window !== 'undefined' ? window.location.origin : 'https://www.chadmint.fun',
-  []);
-
   return (
     <QueryClientProvider client={queryClient}>
-      {/* FIX: REMOVE ConnectionProvider.
-        UnifiedWalletProvider manages the connection context internally.
-        Nesting them causes state loss on mobile redirects.
-      */}
       <UnifiedWalletProvider
         wallets={wallets}
         config={{
@@ -66,8 +56,8 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
           metadata: {
             name: 'ChadMint',
             description: 'ChadMint',
-            url: clusterDomain,
-            iconUrls: ['https://www.chadmint.fun/Chadmint_logo1.png'],
+            url: 'https://chadmint.fun',
+            iconUrls: ['https://chadmint.fun/Chadmint_logo1.png'],
           },
           notificationCallback: WalletNotification,
           theme: 'dark',
