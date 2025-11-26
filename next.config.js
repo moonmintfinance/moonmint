@@ -30,35 +30,50 @@ const nextConfig = {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     // Development CSP - allows HMR
-    const devScriptSrc = "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://va.vercel-scripts.com https://plugin.jup.ag";
+    const devScriptSrc = "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://va.vercel-scripts.com https://plugin.jup.ag https://*.reown.com https://*.walletconnect.org";
 
     // Production CSP - no unsafe-eval, much stricter
-    const prodScriptSrc = "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://va.vercel-scripts.com https://plugin.jup.ag";
+    const prodScriptSrc = "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://va.vercel-scripts.com https://plugin.jup.ag https://*.reown.com https://*.walletconnect.org";
 
     // Dedicated Gateway Domain
     const pinataGateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://indigo-historic-lark-315.mypinata.cloud';
 
     const cspValue = [
-      // Default policy - only allow same-origin scripts
+      // Default policy - only allow same-origin
       "default-src 'self'",
 
       // Script sources - environment dependent
+      // ✅ FIXED: Added *.reown.com and *.walletconnect.org for mobile wallet SDKs
       isDevelopment ? devScriptSrc : prodScriptSrc,
 
       // Style sources - allow self, inline styles from Tailwind/styled-components
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      // ✅ FIXED: Added *.reown.com for wallet styling
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.reown.com",
 
-      // Image sources - allow self, data URIs, and HTTPS URLs including Pinata Public & Dedicated
+      // Image sources - allow self, data URIs, and HTTPS URLs
       `img-src 'self' data: blob: https: https://gateway.pinata.cloud ${pinataGateway}`,
 
-      // ✅ FIXED: Font sources - Added fonts.reown.com for Reown/WalletConnect fonts
-      "font-src 'self' data: https://fonts.gstatic.com https://fonts.reown.com",
+      // Font sources - Added fonts.reown.com for Reown/WalletConnect fonts
+      // ✅ FIXED: Added *.walletconnect.org for wallet fonts
+      "font-src 'self' data: https://fonts.gstatic.com https://fonts.reown.com https://*.walletconnect.org",
 
-      // ✅ FIXED: Connect sources - Added WalletConnect and Reown relay endpoints
-      `connect-src 'self' https: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com https://dexscreener.com https://api.pinata.cloud https://gateway.pinata.cloud ${pinataGateway} https://birdeye.so wss://relay.walletconnect.org https://relay.walletconnect.org https://*.walletconnect.org wss://*.walletconnect.org https://api.walletconnect.org https://*.reown.com wss://*.reown.com`,
+      // ✅ NEW: Worker sources - CRITICAL for mobile wallet Web Workers
+      // Mobile wallets use Web Workers for async operations
+      "worker-src 'self' blob:",
 
-      // Frame sources - Added birdeye.so
-      "frame-src 'self' https://dexscreener.com https://birdeye.so",
+      // ✅ NEW: Manifest sources - for wallet metadata/manifests
+      "manifest-src 'self'",
+
+      // Connect sources - WebSocket and API connections
+      // ✅ FIXED: Added api.reown.com and improved wildcard matching
+      `connect-src 'self' https: wss: https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://rpc.solana.com wss://api.devnet.solana.com wss://api.testnet.solana.com wss://api.mainnet-beta.solana.com wss://devnet.solana.com wss://testnet.solana.com wss://mainnet.solana.com https://*.helius.dev https://*.alchemy.com https://*.quicknode.com https://solscan.io https://pumpportal.fun https://pump.fun https://plugin.jup.ag https://va.vercel-scripts.com https://dexscreener.com https://api.pinata.cloud https://gateway.pinata.cloud ${pinataGateway} https://birdeye.so wss://relay.walletconnect.org https://relay.walletconnect.org https://*.walletconnect.org wss://*.walletconnect.org https://api.walletconnect.org https://api.reown.com https://*.reown.com wss://*.reown.com https://*.walletconnect.com wss://*.walletconnect.com`,
+
+      // Frame sources - wallet iframes and external services
+      // ✅ FIXED: Added support for Reown/WalletConnect iframes
+      "frame-src 'self' https://*.reown.com https://*.walletconnect.org https://dexscreener.com https://birdeye.so",
+
+      // ✅ NEW: Child frame navigation - allows nested frames from wallet providers
+      "child-src 'self' https://*.reown.com https://*.walletconnect.org",
 
       // Frame ancestors - prevent clickjacking
       "frame-ancestors 'none'",
@@ -68,6 +83,12 @@ const nextConfig = {
 
       // Form action - restrict form submissions
       "form-action 'self'",
+
+      // ✅ NEW: Object sources - disable for security (prevent plugin execution)
+      "object-src 'none'",
+
+      // ✅ NEW: Media sources - for any wallet media
+      "media-src 'self' https:",
     ].join('; ');
 
     return [
