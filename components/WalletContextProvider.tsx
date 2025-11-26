@@ -16,7 +16,6 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
     []
   );
 
-  // ✅ FIX 1: Validate ProjectId before initialization
   const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
 
   if (!projectId) {
@@ -31,10 +30,9 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
         url: 'https://www.chadmint.fun',
         icons: ['/Chadmint_logo1.png'],
       },
-      // ✅ FIX 2: Only initialize if projectId exists
       projectId: projectId || 'default-project-id',
       features: {
-        analytics: false,
+        analytics: true,
         socials: ['google', 'x', 'apple'],
         email: false,
       },
@@ -42,12 +40,10 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
     },
   });
 
-  // ✅ FIX 3: Stabilize the wallets array - only include jupiterAdapter without filtering
   const wallets: Adapter[] = useMemo(() => {
     if (!jupiterAdapter) {
       return [];
     }
-    // Don't filter - jupiterAdapter should always be included if it exists
     return [jupiterAdapter];
   }, [jupiterAdapter]);
 
@@ -55,7 +51,6 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
     <UnifiedWalletProvider
       wallets={wallets}
       config={{
-        // ✅ FIX 4: Disable autoConnect initially if wallet not ready
         autoConnect: projectId ? true : false,
         env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as any) || 'mainnet-beta',
         metadata: {
