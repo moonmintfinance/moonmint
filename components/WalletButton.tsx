@@ -1,52 +1,30 @@
 'use client';
 
+import { UnifiedWalletButton } from '@jup-ag/wallet-adapter';
 import { useEffect, useState } from 'react';
-import { useUnifiedWalletContext } from '@jup-ag/wallet-adapter';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletReady } from '@/components/WalletContextProvider';
 
 export function WalletButton() {
-  const [isMounted, setIsMounted] = useState(false);
-  const { setShowModal } = useUnifiedWalletContext();
-  const { connected, publicKey } = useWallet();
-  const { isAdapterReady, adapterError } = useWalletReady();
+  // Prevent hydration errors by rendering only on client
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Render loading state during SSR
-  if (!isMounted) {
+  if (!mounted) {
     return (
-      <div className="h-10 px-3 md:px-4 bg-dark-200 rounded-lg animate-pulse flex items-center justify-center max-w-[120px] md:max-w-none">
-        <span className="text-xs text-gray-400 truncate">Loading...</span>
+      <div className="h-10 px-4 bg-dark-200 rounded-lg animate-pulse flex items-center justify-center min-w-[140px]">
+        <span className="text-xs text-gray-400">Loading...</span>
       </div>
     );
   }
 
-  // Show loading only briefly while adapter initializes (max 5s due to timeout)
-  if (!isAdapterReady) {
-    return (
-      <div className="h-10 px-3 md:px-4 bg-dark-200 rounded-lg flex items-center justify-center max-w-[120px] md:max-w-none">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs text-gray-400 truncate hidden md:inline">Connecting...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // If there was an error but we timed out, still show connect button
-  const displayText = connected && publicKey
-    ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
-    : 'Connect Wallet';
+  // FIX: Cast to 'any' to resolve React 18 vs 19 type mismatch (TS2786)
+  const WalletButtonComponent = UnifiedWalletButton as any;
 
   return (
-    <button
-      onClick={() => setShowModal(true)}
-      className="h-10 px-3 md:px-4 bg-primary-500 hover:bg-primary-400 active:bg-primary-600 text-black font-bold rounded-lg transition-all text-xs md:text-sm whitespace-nowrap overflow-hidden max-w-[120px] md:max-w-none shadow-lg shadow-primary-500/40 hover:shadow-primary-500/60"
-    >
-      {displayText}
-    </button>
+    <div className="wallet-button-wrapper">
+      <WalletButtonComponent
+        buttonClassName="!bg-primary-500 hover:!bg-primary-400 !text-black !font-black !rounded-lg !h-10 !px-4 !text-sm !transition-all !shadow-lg !shadow-primary-500/40 hover:!shadow-primary-500/60"
+        currentUserClassName="!bg-dark-200 !text-white !border !border-primary-500/30 hover:!border-primary-500"
+      />
+    </div>
   );
 }
