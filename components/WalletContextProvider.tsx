@@ -1,52 +1,55 @@
 'use client';
 
-import { ReactNode, useMemo } from 'react';
-import { UnifiedWalletProvider } from '@jup-ag/wallet-adapter';
-import { useWrappedReownAdapter } from '@jup-ag/jup-mobile-adapter';
-import { Adapter } from '@solana/wallet-adapter-base';
+import { ReactNode } from 'react';
+import { UnifiedWalletProvider, Adapter } from '@jup-ag/wallet-adapter';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import toast from 'react-hot-toast';
 
 interface WalletContextProviderProps {
   children: ReactNode;
 }
 
-export function WalletContextProvider({ children }: WalletContextProviderProps) {
-  const { jupiterAdapter } = useWrappedReownAdapter({
-    appKitOptions: {
-      metadata: {
-        name: 'Chad Mint',
-        description: 'Professional Solana Token Minter',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://www.chadmint.fun',
-        icons: ['/Chadmint_logo1.png'],
-      },
-      projectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || '',
-      features: {
-        analytics: true,
-        socials: ['google', 'x', 'apple'],
-        email: false,
-      },
-      enableWallets: false,
-    },
-  });
+const WalletNotification = {
+  onConnect: ({ walletName, shortAddress }: { walletName: string; shortAddress: string }) => {
+    toast.success(`Connected to ${walletName} (${shortAddress})`);
+  },
+  onConnecting: ({ walletName }: { walletName: string }) => {
+    toast(`Connecting to ${walletName}...`, {
+      icon: '🔌',
+      duration: 2000
+    });
+  },
+  onDisconnect: ({ walletName }: { walletName: string }) => {
+    toast(`Disconnected from ${walletName}`, { icon: 'ea' });
+  },
+  onError: ({ walletName, error }: { walletName: string; error: any }) => {
+    console.error('Wallet error:', error);
+    toast.error(`Connection failed: ${error?.message || 'Unknown error'}`);
+  },
+  onNotInstalled: ({ walletName }: { walletName: string }) => {
+    toast.error(`${walletName} is not installed!`);
+  },
+};
 
-  const wallets = useMemo(() => {
-    // Fixes TS2677 error by casting
-    if (jupiterAdapter) {
-      return [jupiterAdapter as unknown as Adapter];
-    }
-    return [];
-  }, [jupiterAdapter]);
+export function WalletContextProvider({ children }: WalletContextProviderProps) {
+  const wallets: Adapter[] = [];
 
   return (
     <UnifiedWalletProvider
       wallets={wallets}
       config={{
         autoConnect: true,
-        env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as any) || 'mainnet-beta',
+        env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as WalletAdapterNetwork) || 'mainnet-beta',
         metadata: {
           name: 'Chad Mint',
           description: 'Professional Solana Token Minter',
           url: typeof window !== 'undefined' ? window.location.origin : 'https://www.chadmint.fun',
           iconUrls: ['/Chadmint_logo1.png'],
+        },
+        // Hook up the notifications
+        notificationCallback: WalletNotification,
+        walletlistExplanation: {
+          href: 'https://station.jup.ag/docs/wallet-list',
         },
         theme: 'dark',
         lang: 'en',
