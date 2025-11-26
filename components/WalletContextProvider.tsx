@@ -10,7 +10,6 @@ interface WalletContextProviderProps {
 }
 
 export function WalletContextProvider({ children }: WalletContextProviderProps) {
-  // Initialize the Reown (WalletConnect) adapter
   const { jupiterAdapter } = useWrappedReownAdapter({
     appKitOptions: {
       metadata: {
@@ -29,8 +28,8 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
     },
   });
 
-  // Memoize the wallets list
   const wallets = useMemo(() => {
+    // Fixes TS2677 error by casting
     if (jupiterAdapter) {
       return [jupiterAdapter as unknown as Adapter];
     }
