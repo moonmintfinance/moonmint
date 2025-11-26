@@ -1,18 +1,10 @@
 /**
- * Hot Tokens API Route
+ * Hot Tokens API Endpoint
  * Location: app/api/hot-tokens/route.ts
  *
- * ARCHITECTURE:
- * - Server-side cache that refreshes once per hour
- * - All users get the SAME cached data
- * - Zero RPC calls from client
- * - Dramatically faster UX
- *
- * Benefits:
- * - 1 RPC call per hour instead of per user
- * - All users see consistent rankings
- * - Client response in milliseconds (from cache)
- * - Zero blockchain latency from user perspective
+ * UPDATED: Filters pools by DBC config key from environment variable
+ * Environment Variable: NEXT_PUBLIC_Jupiter_Studio_Config_key
+ * Limit: Top 25 coins by hotness score
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -24,41 +16,48 @@ import { TRANSACTION_CONFIG } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 
-// ✅ In-memory cache with TTL
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number; // milliseconds
+// ✅ Get DBC CONFIG KEY from environment variable
+const DBC_CONFIG_KEY = process.env.NEXT_PUBLIC_Jupiter_Studio_Config_key;
+
+if (!DBC_CONFIG_KEY) {
+  console.error('❌ NEXT_PUBLIC_Jupiter_Studio_Config_key is not set in environment variables');
 }
 
-class Cache<T> {
-  private store: Map<string, CacheEntry<T>> = new Map();
+const SOLANA_RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
 
-  set(key: string, data: T, ttlMs: number) {
+/**
+ * Cache implementation for hot tokens
+ */
+class Cache<T> {
+  private store: Map<
+    string,
+    { data: T; timestamp: number; ttl: number }
+  > = new Map();
+
+  set(key: string, data: T, ttl: number): void {
     this.store.set(key, {
       data,
       timestamp: Date.now(),
-      ttl: ttlMs,
+      ttl,
     });
-    console.log(`💾 Cached: ${key} (TTL: ${ttlMs / 1000 / 60}m)`);
+    console.log(`✅ Cache set: ${key} (TTL: ${ttl / 1000 / 60}m)`);
   }
 
   get(key: string): T | null {
     const entry = this.store.get(key);
-    if (!entry) return null;
-
-    const now = Date.now();
-    const age = now - entry.timestamp;
-
-    // Check if cache has expired
-    if (age > entry.ttl) {
-      this.store.delete(key);
-      console.log(`⏰ Cache expired: ${key}`);
+    if (!entry) {
+      console.log(`❌ Cache miss: ${key}`);
       return null;
     }
 
-    const remainingMs = entry.ttl - age;
-    console.log(`⚡ Cache hit: ${key} (expires in ${remainingMs / 1000 / 60}m)`);
+    const age = Date.now() - entry.timestamp;
+    if (age > entry.ttl) {
+      console.log(`⏱️  Cache expired: ${key} (age: ${age / 1000 / 60}m)`);
+      this.store.delete(key);
+      return null;
+    }
+
+    console.log(`⚡ Cache hit: ${key} (expires in ${(entry.ttl - age) / 1000 / 60}m)`);
     return entry.data;
   }
 
@@ -85,7 +84,7 @@ interface HotToken {
   progress: number;
   quoteReserve: number;
   baseReserve: number;
-  sqrtPrice: string; // Serialized BN
+  sqrtPrice: string;
   volatility: number;
   totalVolume: number;
   hotnessScore: number;
@@ -102,7 +101,7 @@ interface HotTokensResponse {
 
 // ✅ Global cache instance
 const hotTokensCache = new Cache<HotToken[]>();
-const CACHE_KEY = 'hot-tokens';
+const CACHE_KEY = 'hot-tokens-dbc-filtered';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 // ✅ Flag to prevent simultaneous refreshes
@@ -110,7 +109,7 @@ let isFetching = false;
 let fetchPromise: Promise<HotToken[]> | null = null;
 
 /**
- * Calculate hotness score
+ * Calculate hotness score based on volume and volatility
  */
 function calculateHotnessScore(metrics: {
   totalTradingQuoteFee: BN;
@@ -131,37 +130,33 @@ function calculateHotnessScore(metrics: {
 
 /**
  * ✅ Fetch hot tokens from blockchain (server-side only)
+ * FILTERS BY SPECIFIC DBC CONFIG KEY FROM ENVIRONMENT
  */
-async function fetchHotTokensFromBlockchain(
-  limit: number = 25
-): Promise<HotToken[]> {
+async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToken[]> {
+  // Validate config key is set
+  if (!DBC_CONFIG_KEY) {
+    throw new Error('DBC_CONFIG_KEY (NEXT_PUBLIC_Jupiter_Studio_Config_key) is not configured');
+  }
+
   const startTime = Date.now();
-  console.log('🔄 [Server] Starting hot tokens refresh...');
 
   try {
-    // Get RPC endpoint from environment
-    const rpcUrl =
-      process.env.NEXT_PUBLIC_HELIUS_RPC ||
-      'https://api.mainnet-beta.solana.com';
-
-    const connection = new Connection(rpcUrl, TRANSACTION_CONFIG.COMMITMENT);
-    const client = new DynamicBondingCurveClient(
-      connection,
-      TRANSACTION_CONFIG.COMMITMENT
+    console.log(
+      `[Server] Starting hot tokens fetch from DBC config: ${DBC_CONFIG_KEY}`
     );
 
-    // Step 1: Fetch all pools
-    console.log('[Server] Step 1/3: Fetching all pools...');
-    const allPoolAccounts = await client.state.getPools();
-    console.log(`[Server] Found ${allPoolAccounts.length} pools`);
+    const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
+    const client = new DynamicBondingCurveClient(connection, TRANSACTION_CONFIG.COMMITMENT);
 
-    if (allPoolAccounts.length === 0) {
-      console.warn('[Server] No pools found');
-      return [];
-    }
+    // ✅ UPDATED: Fetch ONLY pools from the specific DBC config key
+    console.log('[Server] Step 1/4: Fetching pools from specific DBC config...');
+    const configPubKey = new PublicKey(DBC_CONFIG_KEY);
+    const virtualPools = await client.state.getPoolsByConfig(configPubKey);
 
-    // Step 2: Extract metrics
-    console.log('[Server] Step 2/3: Extracting pool metrics...');
+    console.log(`[Server] Found ${virtualPools.length} pools in config`);
+
+    // Step 2: Extract metrics from pools
+    console.log('[Server] Step 2/4: Extracting pool metrics...');
     const allMetrics: Array<{
       poolAddress: PublicKey;
       baseMint: string;
@@ -175,13 +170,12 @@ async function fetchHotTokensFromBlockchain(
     }> = [];
     const mintAddresses: string[] = [];
 
-    for (const poolAccount of allPoolAccounts) {
+    for (const poolItem of virtualPools) {
       try {
-        const pool = poolAccount.account || poolAccount;
-        const poolAddress =
-          poolAccount.publicKey || new PublicKey(pool.config.toString());
+        const pool = (poolItem as any).account;
+        const poolAddress = (poolItem as any).publicKey;
 
-        if (!poolAddress || !pool) continue;
+        if (!pool || !poolAddress) continue;
 
         const baseMintStr =
           typeof pool.baseMint === 'string'
@@ -205,15 +199,15 @@ async function fetchHotTokensFromBlockchain(
         });
         mintAddresses.push(baseMintStr);
       } catch (err) {
-        console.warn('Error processing pool:', err);
+        console.warn('Error processing metrics:', err);
         continue;
       }
     }
 
     console.log(`[Server] Extracted ${allMetrics.length} pool metrics`);
 
-    // Step 3: Fetch metadata
-    console.log('[Server] Step 3/3: Fetching metadata...');
+    // Step 3: Fetch metadata using your existing DAS API function
+    console.log('[Server] Step 3/4: Fetching metadata...');
     const metadataMap = await fetchMultipleTokenMetadata(mintAddresses);
     console.log(`[Server] Fetched metadata for ${metadataMap.size} tokens`);
 
@@ -257,18 +251,20 @@ async function fetchHotTokensFromBlockchain(
       }
     }
 
-    // Sort and rank
+    // Sort by hotness score and take top 25
     hotTokens.sort((a, b) => b.hotnessScore - a.hotnessScore);
     hotTokens.forEach((token, index) => {
       token.rank = index + 1;
     });
 
+    const topTokens = hotTokens.slice(0, limit);
     const elapsed = Date.now() - startTime;
+
     console.log(
-      `✅ [Server] Complete: ${hotTokens.length} tokens in ${elapsed}ms`
+      `✅ [Server] Complete: ${topTokens.length} tokens in ${elapsed}ms`
     );
 
-    return hotTokens.slice(0, limit);
+    return topTokens;
   } catch (err) {
     console.error('[Server] Error fetching hot tokens:', err);
     throw err;
@@ -280,6 +276,17 @@ async function fetchHotTokensFromBlockchain(
  */
 export async function GET(request: NextRequest) {
   try {
+    // Validate config key is set before processing
+    if (!DBC_CONFIG_KEY) {
+      return NextResponse.json(
+        {
+          error: 'Configuration Error',
+          details: 'NEXT_PUBLIC_Jupiter_Studio_Config_key environment variable is not set',
+        },
+        { status: 500 }
+      );
+    }
+
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '25');
 
     // Check if data is in cache
@@ -293,7 +300,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         tokens: cachedTokens.slice(0, limit),
         cached: true,
-        fetchedAt: Date.now() - remainingMs,
+        fetchedAt: Date.now() - (CACHE_TTL_MS - remainingMs),
         cacheExpiresAt,
         cacheRemainingMs: remainingMs,
       } as HotTokensResponse);
