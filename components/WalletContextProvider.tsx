@@ -1,8 +1,9 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react'; // Added useMemo
 import { UnifiedWalletProvider, Adapter } from '@jup-ag/wallet-adapter';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 interface WalletContextProviderProps {
@@ -34,28 +35,29 @@ const WalletNotification = {
 export function WalletContextProvider({ children }: WalletContextProviderProps) {
   const wallets: Adapter[] = [];
 
+  // Create a client
+  const queryClient = useMemo(() => new QueryClient(), []);
+
   return (
-    <UnifiedWalletProvider
-      wallets={wallets}
-      config={{
-        autoConnect: true,
-        env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as WalletAdapterNetwork) || 'mainnet-beta',
-        metadata: {
-          name: 'ChadMint',
-          description: 'ChadMint',
-          url: 'https://www.chadmint.fun',
-          iconUrls: ['https://www.chadmint.fun/Chadmint_logo1.png'],
-        },
-        // Hook up the notifications
-        notificationCallback: WalletNotification,
-        walletlistExplanation: {
-          href: 'https://station.jup.ag/docs/wallet-list',
-        },
-        theme: 'dark',
-        lang: 'en',
-      }}
-    >
-      {children}
-    </UnifiedWalletProvider>
+    // Wrap the UnifiedWalletProvider
+    <QueryClientProvider client={queryClient}>
+      <UnifiedWalletProvider
+        wallets={wallets}
+        config={{
+          autoConnect: true,
+          env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as WalletAdapterNetwork) || 'mainnet-beta',
+          metadata: {
+            name: 'ChadMint',
+            description: 'ChadMint',
+            url: 'https://www.chadmint.fun',
+            iconUrls: ['https://www.chadmint.fun/Chadmint_logo1.png'],
+          },
+          notificationCallback: WalletNotification,
+          theme: 'dark',
+        }}
+      >
+        {children}
+      </UnifiedWalletProvider>
+    </QueryClientProvider>
   );
 }
