@@ -1,6 +1,6 @@
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useState, useCallback } from 'react';
-import { Keypair } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { AtomicToken2022MintService } from '@/services/tokenMintService';
 import { TokenMetadata, MintConfig } from '@/types/token';
 
@@ -29,12 +29,18 @@ export function useTokenMint() {
         // Generate keypair for the new mint
         const mintKeypair = Keypair.generate();
 
-        // Call the service with all required parameters
+        // Get service fee recipient from environment
+        const serviceFeeRecipient = process.env.NEXT_PUBLIC_SERVICE_FEE_WALLET
+          ? new PublicKey(process.env.NEXT_PUBLIC_SERVICE_FEE_WALLET)
+          : undefined;
+
+        // Call the service with all required parameters (5 arguments)
         const transaction = await mintService.buildMintTransaction(
           wallet.publicKey,
           mintKeypair,
           metadata,
-          config
+          config,
+          serviceFeeRecipient  // ✅ FIXED: Added missing 5th parameter
         );
 
         if (!transaction) {

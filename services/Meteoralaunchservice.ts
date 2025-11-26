@@ -59,7 +59,8 @@ export class MeteoraLaunchService {
   ) {}
 
   /**
-   * Initialize Meteora DBC Client with proper typing
+   * Initialize Meteora DBC Client
+   * ✅ FIXED: DynamicBondingCurveClient expects (connection, commitment) not a provider
    */
   private async initClient() {
     if (
@@ -70,22 +71,16 @@ export class MeteoraLaunchService {
       throw new Error('Wallet not connected');
     }
 
-    // Create properly typed anchor wallet
-    const anchorWallet = {
-      publicKey: this.wallet.publicKey,
-      signTransaction: this.wallet.signTransaction.bind(this.wallet),
-      signAllTransactions: this.wallet.signAllTransactions.bind(this.wallet),
-    };
-
     try {
+      // ✅ DynamicBondingCurveClient only needs connection and commitment
+      // It handles provider creation internally
       this.client = new DynamicBondingCurveClient(
         this.connection,
-        // @ts-ignore
-        anchorWallet
+        TRANSACTION_CONFIG.COMMITMENT
       );
-      console.log('✅ Meteora DBC Client initialized');
+      console.log('✅ Meteora DBC Client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Meteora client:', error);
+      console.error('❌ Failed to initialize Meteora client:', error);
       throw new Error('Failed to initialize Meteora DBC Client');
     }
   }
@@ -104,13 +99,14 @@ export class MeteoraLaunchService {
   /**
    * Launch token on Meteora bonding curve
    *
-   * CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
-   * "Sign with Phantom first using signTransaction, then collect signatures from other signers"
+   * Returns 2 transactions:
+   * 1. Pool creation transaction (requires mint keypair signature)
+   * 2. Swap/buy transaction (Phantom signature only)
    *
-   * This method:
-   * 1. Creates separate transactions (pool creation + swap)
-   * 2. Returns them for Phantom to sign FIRST
-   * 3. Returns the mint keypair for client to sign AFTER
+   * Client should:
+   * 1. Call signAllTransactions() with both transactions
+   * 2. Add mint keypair signature to transaction[0] only
+   * 3. Send both fully signed transactions
    */
   async launchToken(params: MeteoraLaunchParams): Promise<MeteoraLaunchResult> {
     this.validateConfig();
@@ -185,9 +181,7 @@ export class MeteoraLaunchService {
       console.log('✅ Pool transactions created by SDK');
 
       // ========================================================================
-      // CRITICAL FIX: Per Phantom documentation for multi-signer transactions:
-      // "Sign with Phantom first using signTransaction, then collect signatures from other signers"
-      // Do NOT pre-sign with keypairs - let Phantom handle signing first
+      // Prepare transactions for client signing
       // ========================================================================
       const txsToSign: Transaction[] = [];
       const { blockhash } = await this.connection.getLatestBlockhash(
@@ -213,12 +207,12 @@ export class MeteoraLaunchService {
       }
 
       console.log(
-        `✅ Prepared ${txsToSign.length} transaction(s) for Phantom signing`
+        `✅ Prepared ${txsToSign.length} transaction(s) for client signing`
       );
 
       return {
         transactions: txsToSign,
-        mintKeypair,  // Return keypair for client to sign AFTER Phantom
+        mintKeypair,  // Client will sign this on pool creation tx only
         mintAddress: mint.toBase58(),
         poolAddress: poolAddress.toBase58(),
       };

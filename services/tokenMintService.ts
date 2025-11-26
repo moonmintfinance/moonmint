@@ -147,11 +147,7 @@ export class AtomicToken2022MintService {
    * @returns Transaction ready to be signed
    */
   async buildMintTransaction(
-    payer: PublicKey,
-    mintKeypair: Keypair,
-    metadata: CustomTokenMetadata,
-    config: MintConfig
-  ): Promise<Transaction> {
+    payer: PublicKey, mintKeypair: Keypair, metadata: CustomTokenMetadata, config: MintConfig, serviceFeeRecipient: PublicKey | undefined  ): Promise<Transaction> {
     try {
       const mint = mintKeypair.publicKey;
 
