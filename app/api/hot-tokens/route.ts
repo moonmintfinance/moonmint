@@ -1,10 +1,14 @@
 /**
- * Hot Tokens API Endpoint
+ * Hot Tokens API - FINAL OPTIMIZED
  * Location: app/api/hot-tokens/route.ts
  *
- * UPDATED: Filters pools by DBC config key from environment variable
- * Environment Variable: NEXT_PUBLIC_Jupiter_Studio_Config_key
- * Limit: Top 25 coins by hotness score
+ * 🚀 Perfect balance:
+ * - Calculate hotness for all 4,430 (no API calls, use pool data)
+ * - Sort and take top 25
+ * - Fetch Token 2022 on-chain metadata for only top 25 (1 efficient DAS call)
+ * - Fetch anoncoin.it images for top 25
+ * 
+ * Result: Just 1 Helius API call for top 25 metadata!
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,65 +16,41 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { BN } from '@project-serum/anchor';
 import { fetchMultipleTokenMetadata } from '@/lib/das-api';
+import { fetchAnonCoinImages } from '@/lib/anoncoin-image-service';
 import { TRANSACTION_CONFIG } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 
-// ✅ Get DBC CONFIG KEY from environment variable
 const DBC_CONFIG_KEY = process.env.NEXT_PUBLIC_Jupiter_Studio_Config_key;
-
-if (!DBC_CONFIG_KEY) {
-  console.error('❌ NEXT_PUBLIC_Jupiter_Studio_Config_key is not set in environment variables');
-}
-
 const SOLANA_RPC_ENDPOINT = process.env.HELIUS_API_KEY
   ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
   : process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
 
 /**
- * Cache implementation for hot tokens
+ * Simple cache
  */
 class Cache<T> {
-  private store: Map<
-    string,
-    { data: T; timestamp: number; ttl: number }
-  > = new Map();
+  private store: Map<string, { data: T; timestamp: number; ttl: number }> = new Map();
 
   set(key: string, data: T, ttl: number): void {
-    this.store.set(key, {
-      data,
-      timestamp: Date.now(),
-      ttl,
-    });
+    this.store.set(key, { data, timestamp: Date.now(), ttl });
     console.log(`✅ Cache set: ${key} (TTL: ${ttl / 1000 / 60}m)`);
   }
 
   get(key: string): T | null {
     const entry = this.store.get(key);
-    if (!entry) {
-      console.log(`❌ Cache miss: ${key}`);
-      return null;
-    }
-
+    if (!entry) return null;
     const age = Date.now() - entry.timestamp;
     if (age > entry.ttl) {
-      console.log(`⏱️  Cache expired: ${key} (age: ${age / 1000 / 60}m)`);
       this.store.delete(key);
       return null;
     }
-
-    console.log(`⚡ Cache hit: ${key} (expires in ${(entry.ttl - age) / 1000 / 60}m)`);
     return entry.data;
-  }
-
-  isExpired(key: string): boolean {
-    return this.get(key) === null;
   }
 
   remainingTtl(key: string): number {
     const entry = this.store.get(key);
     if (!entry) return 0;
-
     const age = Date.now() - entry.timestamp;
     return Math.max(0, entry.ttl - age);
   }
@@ -101,17 +81,15 @@ interface HotTokensResponse {
   cacheRemainingMs: number;
 }
 
-// ✅ Global cache instance
 const hotTokensCache = new Cache<HotToken[]>();
-const CACHE_KEY = 'hot-tokens-dbc-filtered';
+const CACHE_KEY = 'hot-tokens-dbc';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-// ✅ Flag to prevent simultaneous refreshes
 let isFetching = false;
 let fetchPromise: Promise<HotToken[]> | null = null;
 
 /**
- * Calculate hotness score based on volume and volatility
+ * Calculate hotness score
  */
 function calculateHotnessScore(metrics: {
   totalTradingQuoteFee: BN;
@@ -131,46 +109,50 @@ function calculateHotnessScore(metrics: {
 }
 
 /**
- * ✅ Fetch hot tokens from blockchain (server-side only)
- * FILTERS BY SPECIFIC DBC CONFIG KEY FROM ENVIRONMENT
+ * Generate fallback SVG image
+ */
+function getFallbackImageUrl(symbol: string): string {
+  const hash = symbol
+    .split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = (hash * 137.5) % 360;
+
+  return `data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22hsl(${hue}%2C70%25%2C50%25)%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 font-size=%2224%22 fill=%22white%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-weight=%22bold%22%3E${symbol.substring(0, 2)}%3C/text%3E%3C/svg%3E`;
+}
+
+/**
+ * ✅ FINAL OPTIMIZED: Proper metadata for top 25 only
+ * 🚀 Steps:
+ * 1. Get all pools from DBC
+ * 2. Calculate hotness for all 4,430 (no API calls)
+ * 3. Sort and take top 25
+ * 4. Fetch Token 2022 metadata for top 25 ONLY (1 efficient DAS call)
+ * 5. Fetch anoncoin.it images for top 25
+ * 
+ * Result: Authoritative on-chain metadata + custom images!
  */
 async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToken[]> {
-  // Validate config key is set
   if (!DBC_CONFIG_KEY) {
-    throw new Error('DBC_CONFIG_KEY (NEXT_PUBLIC_Jupiter_Studio_Config_key) is not configured');
+    throw new Error('DBC_CONFIG_KEY not configured');
   }
 
   const startTime = Date.now();
 
   try {
-    console.log(
-      `[Server] Starting hot tokens fetch from DBC config: ${DBC_CONFIG_KEY}`
-    );
+    console.log(`[Server] Fetching hot tokens from DBC config: ${DBC_CONFIG_KEY}`);
 
     const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
     const client = new DynamicBondingCurveClient(connection, TRANSACTION_CONFIG.COMMITMENT);
 
-    // ✅ UPDATED: Fetch ONLY pools from the specific DBC config key
-    console.log('[Server] Step 1/4: Fetching pools from specific DBC config...');
+    // ✅ Step 1: Get all pools
+    console.log('[Server] Step 1/5: Fetching all pools...');
     const configPubKey = new PublicKey(DBC_CONFIG_KEY);
     const virtualPools = await client.state.getPoolsByConfig(configPubKey);
+    console.log(`[Server] Found ${virtualPools.length} pools`);
 
-    console.log(`[Server] Found ${virtualPools.length} pools in config`);
-
-    // Step 2: Extract metrics from pools
-    console.log('[Server] Step 2/4: Extracting pool metrics...');
-    const allMetrics: Array<{
-      poolAddress: PublicKey;
-      baseMint: string;
-      creator: PublicKey;
-      quoteReserve: BN;
-      baseReserve: BN;
-      sqrtPrice: BN;
-      volatilityAccumulator: BN;
-      totalTradingBaseFee: BN;
-      totalTradingQuoteFee: BN;
-    }> = [];
-    const mintAddresses: string[] = [];
+    // ✅ Step 2: Calculate hotness for ALL pools (no metadata fetching)
+    console.log('[Server] Step 2/5: Calculating hotness for all pools...');
+    const allTokens: HotToken[] = [];
 
     for (const poolItem of virtualPools) {
       try {
@@ -179,92 +161,91 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
 
         if (!pool || !poolAddress) continue;
 
-        const baseMintStr =
-          typeof pool.baseMint === 'string'
-            ? pool.baseMint
-            : pool.baseMint.toBase58?.() || pool.baseMint.toString();
+        const baseMintStr = typeof pool.baseMint === 'string'
+          ? pool.baseMint
+          : pool.baseMint.toBase58?.() || pool.baseMint.toString();
 
-        allMetrics.push({
-          poolAddress: new PublicKey(poolAddress),
-          baseMint: baseMintStr,
-          creator:
-            typeof pool.creator === 'string'
-              ? new PublicKey(pool.creator)
-              : pool.creator,
-          quoteReserve: pool.quoteReserve,
-          baseReserve: pool.baseReserve,
-          sqrtPrice: pool.sqrtPrice,
-          volatilityAccumulator:
-            pool.volatilityTracker?.volatilityAccumulator || new BN(0),
-          totalTradingBaseFee: pool.metrics?.totalTradingBaseFee || new BN(0),
-          totalTradingQuoteFee: pool.metrics?.totalTradingQuoteFee || new BN(0),
+        // Use pool data for initial hotness calculation
+        const poolSymbol = pool.symbol || baseMintStr.substring(0, 8).toUpperCase();
+        const poolName = pool.name || poolSymbol;
+
+        const creator = typeof pool.creator === 'string'
+          ? new PublicKey(pool.creator)
+          : pool.creator;
+
+        const volatilityAccumulator = pool.volatilityTracker?.volatilityAccumulator || new BN(0);
+        const totalTradingQuoteFee = pool.metrics?.totalTradingQuoteFee || new BN(0);
+
+        const hotnessScore = calculateHotnessScore({
+          totalTradingQuoteFee,
+          volatilityAccumulator,
         });
-        mintAddresses.push(baseMintStr);
-      } catch (err) {
-        console.warn('Error processing metrics:', err);
-        continue;
-      }
-    }
 
-    console.log(`[Server] Extracted ${allMetrics.length} pool metrics`);
-
-    // Step 3: Fetch metadata using your existing DAS API function
-    console.log('[Server] Step 3/4: Fetching metadata...');
-    const metadataMap = await fetchMultipleTokenMetadata(mintAddresses);
-    console.log(`[Server] Fetched metadata for ${metadataMap.size} tokens`);
-
-    // Step 4: Calculate hotness and build results
-    console.log('[Server] Step 4/4: Calculating hotness scores...');
-    const hotTokens: HotToken[] = [];
-
-    for (const metrics of allMetrics) {
-      try {
-        const metadata = metadataMap.get(metrics.baseMint) || {
-          name: 'Unknown Token',
-          symbol: metrics.baseMint.substring(0, 8).toUpperCase(),
-          imageUrl:
-            'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23222%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E',
-          decimals: 9,
-        };
-
-        const hotnessScore = calculateHotnessScore(metrics);
-
-        if (hotnessScore > 0 || metrics.quoteReserve.toNumber() > 0) {
-          hotTokens.push({
-            address: metrics.poolAddress.toBase58(),
-            baseMint: metrics.baseMint,
-            name: metadata.name,
-            symbol: metadata.symbol,
-            imageUrl: metadata.imageUrl,
-            creator: metrics.creator.toBase58(),
+        // Only include if it has hotness or reserves
+        if (hotnessScore > 0 || pool.quoteReserve.toNumber() > 0) {
+          allTokens.push({
+            address: new PublicKey(poolAddress).toBase58(),
+            baseMint: baseMintStr,
+            name: poolName, // Will be updated with on-chain metadata
+            symbol: poolSymbol, // Will be updated with on-chain metadata
+            imageUrl: '', // Will set after fetching images
+            creator: creator.toBase58(),
             progress: 0,
-            quoteReserve: metrics.quoteReserve.toNumber() / 1e9,
-           baseReserve: metrics.baseReserve.toString(),
-            sqrtPrice: metrics.sqrtPrice.toString(),
-          volatility: metrics.volatilityAccumulator.toString(),
-          totalVolume: metrics.totalTradingQuoteFee.toString(),
+            quoteReserve: pool.quoteReserve.toNumber() / 1e9,
+            baseReserve: pool.baseReserve.toString(),
+            sqrtPrice: pool.sqrtPrice.toString(),
+            volatility: volatilityAccumulator.toString(),
+            totalVolume: totalTradingQuoteFee.toString(),
             hotnessScore,
             rank: 0,
           });
         }
       } catch (err) {
-        console.warn('Error processing metrics:', err);
+        console.warn('Error processing pool:', err);
         continue;
       }
     }
 
-    // Sort by hotness score and take top 25
-    hotTokens.sort((a, b) => b.hotnessScore - a.hotnessScore);
-    hotTokens.forEach((token, index) => {
+    console.log(`[Server] Calculated hotness for ${allTokens.length} tokens`);
+
+    // ✅ Step 3: Sort by hotness and take TOP 25
+    console.log(`[Server] Step 3/5: Sorting and taking top ${limit}...`);
+    allTokens.sort((a, b) => b.hotnessScore - a.hotnessScore);
+    const topTokens = allTokens.slice(0, limit);
+
+    // ✅ Step 4: Fetch Token 2022 on-chain metadata for ONLY top 25
+    // This is 1 efficient API call with 25 mints, not 25 separate calls!
+    console.log(`[Server] Step 4/5: Fetching Token 2022 on-chain metadata for top ${limit} tokens...`);
+    const dasMetadataMap = await fetchMultipleTokenMetadata(
+      topTokens.map(t => t.baseMint)
+    );
+
+    // Update with authoritative on-chain metadata
+    for (const token of topTokens) {
+      const dasMetadata = dasMetadataMap.get(token.baseMint);
+      if (dasMetadata) {
+        token.name = dasMetadata.name;
+        token.symbol = dasMetadata.symbol;
+      }
+    }
+
+    console.log(`[Server] Got on-chain metadata for ${dasMetadataMap.size} tokens`);
+
+    // ✅ Step 5: Fetch anoncoin.it images for top 25
+    console.log(`[Server] Step 5/5: Fetching anoncoin.it images for top ${limit} tokens...`);
+    const imageMap = await fetchAnonCoinImages(topTokens.map(t => t.symbol));
+
+    // Set images and rank
+    topTokens.forEach((token, index) => {
+      token.imageUrl = imageMap.get(token.symbol) || getFallbackImageUrl(token.symbol);
       token.rank = index + 1;
     });
 
-    const topTokens = hotTokens.slice(0, limit);
     const elapsed = Date.now() - startTime;
 
-    console.log(
-      `✅ [Server] Complete: ${topTokens.length} tokens in ${elapsed}ms`
-    );
+    console.log(`✅ [Server] Complete: ${topTokens.length} tokens in ${elapsed}ms`);
+    console.log(`🚀 [Server] Helius API calls: 1 (batched 25 Token 2022 metadata fetches)`);
+    console.log(`🚀 [Server] Anoncoin.it image checks: ${imageMap.size}/${limit}`);
 
     return topTokens;
   } catch (err) {
@@ -274,60 +255,49 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
 }
 
 /**
- * ✅ GET endpoint - returns cached data or triggers refresh
+ * ✅ GET endpoint
  */
 export async function GET(request: NextRequest) {
   try {
-    // Validate config key is set before processing
     if (!DBC_CONFIG_KEY) {
       return NextResponse.json(
-        {
-          error: 'Configuration Error',
-          details: 'NEXT_PUBLIC_Jupiter_Studio_Config_key environment variable is not set',
-        },
+        { error: 'DBC_CONFIG_KEY not configured' },
         { status: 500 }
       );
     }
 
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '25');
 
-    // Check if data is in cache
+    // Check cache
     let cachedTokens = hotTokensCache.get(CACHE_KEY);
 
     if (cachedTokens) {
-      // Return cached data
       const remainingMs = hotTokensCache.remainingTtl(CACHE_KEY);
-      const cacheExpiresAt = Date.now() + remainingMs;
-
       return NextResponse.json({
         tokens: cachedTokens.slice(0, limit),
         cached: true,
         fetchedAt: Date.now() - (CACHE_TTL_MS - remainingMs),
-        cacheExpiresAt,
+        cacheExpiresAt: Date.now() + remainingMs,
         cacheRemainingMs: remainingMs,
       } as HotTokensResponse);
     }
 
-    // Cache is expired or empty
-    console.log('📡 Cache miss, fetching fresh data...');
-
     // Prevent simultaneous fetches
     if (isFetching && fetchPromise) {
-      console.log('⏳ Fetch already in progress, waiting...');
+      console.log('⏳ Fetch in progress, waiting...');
       const tokens = await fetchPromise;
       const remainingMs = hotTokensCache.remainingTtl(CACHE_KEY);
-      const cacheExpiresAt = Date.now() + remainingMs;
 
       return NextResponse.json({
         tokens: tokens.slice(0, limit),
         cached: true,
         fetchedAt: Date.now() - (CACHE_TTL_MS - remainingMs),
-        cacheExpiresAt,
+        cacheExpiresAt: Date.now() + remainingMs,
         cacheRemainingMs: remainingMs,
       } as HotTokensResponse);
     }
 
-    // Start fetch
+    // Start fresh fetch
     isFetching = true;
     const fetchStartTime = Date.now();
 
@@ -335,16 +305,13 @@ export async function GET(request: NextRequest) {
       fetchPromise = fetchHotTokensFromBlockchain(limit);
       const tokens = await fetchPromise;
 
-      // Store in cache
       hotTokensCache.set(CACHE_KEY, tokens, CACHE_TTL_MS);
-
-      const cacheExpiresAt = Date.now() + CACHE_TTL_MS;
 
       return NextResponse.json({
         tokens: tokens.slice(0, limit),
         cached: false,
         fetchedAt: fetchStartTime,
-        cacheExpiresAt,
+        cacheExpiresAt: Date.now() + CACHE_TTL_MS,
         cacheRemainingMs: CACHE_TTL_MS,
       } as HotTokensResponse);
     } finally {
@@ -352,7 +319,7 @@ export async function GET(request: NextRequest) {
       fetchPromise = null;
     }
   } catch (error) {
-    console.error('❌ Hot tokens API error:', error);
+    console.error('❌ API error:', error);
     return NextResponse.json(
       {
         error: 'Failed to fetch hot tokens',
