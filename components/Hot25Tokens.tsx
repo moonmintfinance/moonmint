@@ -52,18 +52,6 @@ export function HotTokens() {
       {/* Header Section */}
       <div className="mb-12 text-center">
         <h1 className="text-4xl font-bold text-white mb-4">Hottest Tokens</h1>
-        <p className="text-gray-400">
-          {cached ? '⚡ Cached' : '🔄 Fresh'} data
-          {refreshCountdown > 0 && (
-            <>
-              {' '}
-              • Refreshes in{' '}
-              <span className="text-white font-mono">
-                {refreshMinutes}m {refreshSeconds}s
-              </span>
-            </>
-          )}
-        </p>
         <p className="text-sm text-gray-500 mt-2">
           Top {tokens.length} tokens by hotness score
         </p>
@@ -159,14 +147,6 @@ export function HotTokens() {
             </div>
           </Link>
         ))}
-      </div>
-
-      {/* Footer Note */}
-      <div className="text-center text-xs text-gray-600">
-        <p>
-          Data refreshes every hour on the server.{' '}
-          <span className="text-gray-500">All users see the same rankings.</span>
-        </p>
       </div>
     </div>
   );
