@@ -89,7 +89,8 @@ export function Header() {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Create', href: '/#mint' },
-    { name: 'Tokens', href: '/new-tokens' },
+    { name: 'New Tokens', href: '/new-tokens' },
+    { name: 'Hot Tokens', href: '/hot' },
     { name: 'Swap', href: '/swap' },
     { name: 'Refer', href: '/referral' },
   ];
