@@ -240,7 +240,7 @@ export function TokenForm({
             }`}
             disabled={isLoading || !isWalletConnected}
           >
-            <div className="font-bold text-white mb-1 uppercase">Bonding Curve</div>
+            <div className="font-bold text-white mb-1 uppercase">Meteora Bonding Curve</div>
             <div className="text-xs text-gray-400">Instant trading</div>
           </button>
           <button
@@ -577,7 +577,7 @@ export function TokenForm({
         ) : !isWalletConnected ? (
           'Connect Wallet First'
         ) : (
-          launchType === LaunchType.METEORA ? 'Launch on Meteora' : 'Create Token'
+          launchType === LaunchType.METEORA ? 'Launch' : 'Create Token'
         )}
       </button>
     </form>
