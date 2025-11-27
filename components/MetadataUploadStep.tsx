@@ -147,7 +147,7 @@ export function MetadataUploadStep({
         disabled={isLoading || !connected}
         className="w-full py-3 rounded font-bold bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       >
-        {isLoading ? '⏳ Creating Metadata...' : '✅ Create Metadata (Sign with Wallet)'}
+        {isLoading ? '⏳ Creating Metadata...' : 'Create Metadata (Sign with Wallet)'}
       </button>
 
       {/* Navigation */}

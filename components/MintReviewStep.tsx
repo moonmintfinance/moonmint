@@ -126,16 +126,9 @@ export function MintReviewStep({
             </span>
           </div>
           <p className="text-xs text-blue-300 mt-2">
-            This includes Solana network fees and service fees.
+            Excluding Solana network fees.
           </p>
         </div>
-      </div>
-
-      {/* Confirmation Section */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-        <p className="text-amber-300 text-sm">
-          ⚠️ <span className="font-medium">Final Step:</span> You'll be asked to sign a transaction with your wallet. This cannot be undone.
-        </p>
       </div>
 
       {/* Action Buttons */}
