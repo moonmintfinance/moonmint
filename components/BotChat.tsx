@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
 
 interface Message {
   id: string;
@@ -16,12 +15,14 @@ export function BotChat() {
     {
       id: '1',
       role: 'bot',
-      text: '🌙 Welcome to Chad Mint! Ask me anything about creating Solana tokens, our referral program, or security features.',
+      text: 'Welcome to Chad Mint! Ask me anything about creating Solana tokens, our referral program, or anything else you want to know about Chad Mint.',
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -33,10 +34,31 @@ export function BotChat() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // ✅ Handle countdown for rate limit
+  useEffect(() => {
+    if (!rateLimitedUntil) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now >= rateLimitedUntil) {
+        setRateLimitedUntil(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [rateLimitedUntil]);
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!input.trim() || loading) return;
+
+    // ✅ Check if rate limited
+    if (rateLimitedUntil && Date.now() < rateLimitedUntil) {
+      const remainingSeconds = Math.ceil((rateLimitedUntil - Date.now()) / 1000);
+      setError(`Please wait ${remainingSeconds}s before sending another message`);
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -48,8 +70,7 @@ export function BotChat() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
-
-    const loadingToast = toast.loading('Thinking...');
+    setError(null);
 
     // ✅ Create abort controller for this request
     abortControllerRef.current = new AbortController();
@@ -65,6 +86,17 @@ export function BotChat() {
         }),
         signal: abortControllerRef.current.signal, // ✅ Pass signal
       });
+
+      // ✅ Handle 429 rate limit response
+      if (response.status === 429) {
+        const data = await response.json();
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '60', 10);
+        const rateLimitUntil = Date.now() + (retryAfter * 1000);
+
+        setRateLimitedUntil(rateLimitUntil);
+        setError(`Rate limited :( Please wait ${retryAfter}s before your next message`);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -84,16 +116,16 @@ export function BotChat() {
       };
 
       setMessages(prev => [...prev, botMessage]);
-      toast.success('Response received', { id: loadingToast });
+      setError(null);
     } catch (error) {
       console.error('Chat error:', error);
 
       // ✅ Handle abort gracefully
       if (error instanceof Error && error.name === 'AbortError') {
-        toast.error('Request cancelled', { id: loadingToast });
+        setError('Request cancelled');
       } else {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        toast.error(`Failed to send message: ${errorMsg}`, { id: loadingToast });
+        setError(`Failed to send message: ${errorMsg}`);
       }
     } finally {
       setLoading(false);
@@ -110,11 +142,16 @@ export function BotChat() {
     };
   }, []);
 
+  // ✅ Calculate remaining seconds for rate limit
+  const remainingSeconds = rateLimitedUntil
+    ? Math.ceil((rateLimitedUntil - Date.now()) / 1000)
+    : null;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="pb-4 border-b border-primary-500/30">
-        <h2 className="text-xl font-bold text-white">🌙 Chad Mint FAQ</h2>
+        <h2 className="text-xl font-bold text-white">Chad Mint FAQ</h2>
         <p className="text-xs text-gray-400">Ask about tokens, referrals & more</p>
       </div>
 
@@ -150,6 +187,13 @@ export function BotChat() {
             </div>
           </div>
         )}
+        {error && (
+          <div className="flex justify-start">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+              {error}
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -161,15 +205,16 @@ export function BotChat() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask a question..."
           className="flex-1 min-w-0 bg-dark-50 border border-primary-500/30 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 placeholder-gray-500 disabled:opacity-50"
-          disabled={loading}
+          disabled={loading || (rateLimitedUntil !== null && Date.now() < rateLimitedUntil)}
           maxLength={500}
         />
         <button
           type="submit"
-          disabled={loading || !input.trim()}
+          disabled={loading || !input.trim() || (rateLimitedUntil !== null && Date.now() < rateLimitedUntil)}
           className="flex-shrink-0 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm"
+          title={rateLimitedUntil && Date.now() < rateLimitedUntil ? `Wait ${remainingSeconds}s` : ''}
         >
-          {loading ? '...' : 'Send'}
+          {loading ? '...' : remainingSeconds ? `${remainingSeconds}s` : 'Send'}
         </button>
       </form>
     </div>

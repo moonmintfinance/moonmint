@@ -1,5 +1,6 @@
 // app/api/bot-chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { botChatLimiter } from '@/lib/rate-limiter';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -14,7 +15,7 @@ KEY FEATURES:
 - Referral program: Earn 55% commissions
 
 REFERRAL PROGRAM:
-- Share link: https://chadmint.com/referral?ref=walletaddress
+- Create your unique referral link
 - Earn 55% on every token created
 - Instant on-chain payments
 
@@ -45,11 +46,49 @@ interface OpenRouterResponse {
 
 export async function POST(request: NextRequest) {
   try {
+    // ✅ Get client IP
+    const ip =
+      request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      request.headers.get('cf-connecting-ip') ||
+      'unknown';
+
+    // ✅ Check rate limit
+    const rateLimitResult = await botChatLimiter.isAllowed(ip);
+
+    if (!rateLimitResult.allowed) {
+      console.warn(`⚠️  Rate limited: ${ip} (retry after ${rateLimitResult.retryAfter}s)`);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Too many requests. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitResult.retryAfter!.toString(),
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          },
+        }
+      );
+    }
+
     const { message } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
-        { error: 'Message is required' },
+        { success: false, error: 'Message is required' },
+        { status: 400 }
+      );
+    }
+
+    if (message.trim().length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Message cannot be empty' },
         { status: 400 }
       );
     }
@@ -57,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (!OPENROUTER_API_KEY) {
       console.error('OPENROUTER_API_KEY not configured');
       return NextResponse.json(
-        { error: 'API not configured' },
+        { success: false, error: 'API not configured' },
         { status: 500 }
       );
     }
@@ -98,10 +137,13 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenRouter error:', errorData);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('OpenRouter error:', response.status, errorData);
         return NextResponse.json(
-          { error: 'Failed to get response from AI service' },
+          {
+            success: false,
+            error: 'Failed to get response from AI service',
+          },
           { status: response.status }
         );
       }
@@ -109,27 +151,38 @@ export async function POST(request: NextRequest) {
       const data = (await response.json()) as OpenRouterResponse;
 
       if (data.error) {
+        console.error('OpenRouter API error:', data.error);
         return NextResponse.json(
-          { error: data.error.message },
+          { success: false, error: data.error.message },
           { status: 500 }
         );
       }
 
       if (!data.choices || !data.choices[0]) {
+        console.error('Invalid response from OpenRouter:', data);
         return NextResponse.json(
-          { error: 'Invalid response from AI service' },
+          { success: false, error: 'Invalid response from AI service' },
           { status: 500 }
         );
       }
 
       const responseText = data.choices[0].message.content.trim();
 
-      return NextResponse.json({
-        success: true,
-        response: responseText,
-        timestamp: new Date().toISOString(),
-      });
-
+      // ✅ Include rate limit info in response headers
+      return NextResponse.json(
+        {
+          success: true,
+          response: responseText,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          headers: {
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          },
+        }
+      );
     } catch (error) {
       clearTimeout(timeoutId);
 
@@ -137,18 +190,20 @@ export async function POST(request: NextRequest) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.error('OpenRouter request timeout');
         return NextResponse.json(
-          { error: 'Request timeout - AI service took too long to respond' },
+          {
+            success: false,
+            error: 'Request timeout - AI service took too long to respond',
+          },
           { status: 504 }
         );
       }
 
       throw error;
     }
-
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
