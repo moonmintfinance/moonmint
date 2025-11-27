@@ -1,5 +1,5 @@
 /**
- * Anoncoin Image Service
+ * Anoncoin Image Service - WITH DEBUGGING
  * Location: lib/anoncoin-image-service.ts
  *
  * 🚀 Simple service: Fetch custom images from anoncoin.it CDN
@@ -15,17 +15,21 @@ async function checkAnonCoinImage(symbol: string): Promise<string | null> {
   try {
     const imageUrl = `${ANONCOIN_CDN}/${symbol}/image.png`;
 
+    // ✅ Use GET instead of HEAD - HEAD doesn't work reliably with all CDNs
     const response = await fetch(imageUrl, {
-      method: 'HEAD',
+      method: 'GET',
       signal: AbortSignal.timeout(2000),
     });
 
     if (response.ok) {
+      console.log(`  ✅ Found image for ${symbol}`);
       return imageUrl;
+    } else {
+      console.warn(`  ⚠️ No image for ${symbol} (Status: ${response.status})`);
+      return null;
     }
-
-    return null;
   } catch (error) {
+    console.warn(`  ⚠️ Error fetching ${symbol}: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
@@ -55,6 +59,7 @@ export async function fetchAnonCoinImages(
   console.log(
     `📡 Fetching ${symbols.length} images from anoncoin.it (concurrency=${concurrency})`
   );
+  console.log(`   Symbols: ${symbols.join(', ')}`);
 
   const startTime = Date.now();
 

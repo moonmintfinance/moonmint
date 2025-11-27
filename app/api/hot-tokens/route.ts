@@ -1,22 +1,14 @@
 /**
- * Hot Tokens API - FINAL OPTIMIZED
+ * Hot Tokens API
  * Location: app/api/hot-tokens/route.ts
- *
- * 🚀 Perfect balance:
- * - Calculate hotness for all 4,430 (no API calls, use pool data)
- * - Sort and take top 25
- * - Fetch Token 2022 on-chain metadata for only top 25 (1 efficient DAS call)
- * - Fetch anoncoin.it images for top 25
- * 
- * Result: Just 1 Helius API call for top 25 metadata!
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { BN } from '@project-serum/anchor';
-import { fetchMultipleTokenMetadata } from '@/lib/das-api';
 import { fetchAnonCoinImages } from '@/lib/anoncoin-image-service';
+import { fetchMultipleToken2022Metadata } from '@/lib/token-2022-metadata';
 import { TRANSACTION_CONFIG } from '@/lib/constants';
 
 export const runtime = 'nodejs';
@@ -26,9 +18,6 @@ const SOLANA_RPC_ENDPOINT = process.env.HELIUS_API_KEY
   ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
   : process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
 
-/**
- * Simple cache
- */
 class Cache<T> {
   private store: Map<string, { data: T; timestamp: number; ttl: number }> = new Map();
 
@@ -73,14 +62,6 @@ interface HotToken {
   rank: number;
 }
 
-interface HotTokensResponse {
-  tokens: HotToken[];
-  cached: boolean;
-  fetchedAt: number;
-  cacheExpiresAt: number;
-  cacheRemainingMs: number;
-}
-
 const hotTokensCache = new Cache<HotToken[]>();
 const CACHE_KEY = 'hot-tokens-dbc';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -88,9 +69,6 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 let isFetching = false;
 let fetchPromise: Promise<HotToken[]> | null = null;
 
-/**
- * Calculate hotness score
- */
 function calculateHotnessScore(metrics: {
   totalTradingQuoteFee: BN;
   volatilityAccumulator: BN;
@@ -108,9 +86,6 @@ function calculateHotnessScore(metrics: {
   return volumeScore * 0.7 + volatilityScore * 0.3;
 }
 
-/**
- * Generate fallback SVG image
- */
 function getFallbackImageUrl(symbol: string): string {
   const hash = symbol
     .split('')
@@ -120,17 +95,6 @@ function getFallbackImageUrl(symbol: string): string {
   return `data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22hsl(${hue}%2C70%25%2C50%25)%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 font-size=%2224%22 fill=%22white%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-weight=%22bold%22%3E${symbol.substring(0, 2)}%3C/text%3E%3C/svg%3E`;
 }
 
-/**
- * ✅ FINAL OPTIMIZED: Proper metadata for top 25 only
- * 🚀 Steps:
- * 1. Get all pools from DBC
- * 2. Calculate hotness for all 4,430 (no API calls)
- * 3. Sort and take top 25
- * 4. Fetch Token 2022 metadata for top 25 ONLY (1 efficient DAS call)
- * 5. Fetch anoncoin.it images for top 25
- * 
- * Result: Authoritative on-chain metadata + custom images!
- */
 async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToken[]> {
   if (!DBC_CONFIG_KEY) {
     throw new Error('DBC_CONFIG_KEY not configured');
@@ -144,13 +108,13 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
     const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
     const client = new DynamicBondingCurveClient(connection, TRANSACTION_CONFIG.COMMITMENT);
 
-    // ✅ Step 1: Get all pools
+    // Step 1: Get all pools
     console.log('[Server] Step 1/5: Fetching all pools...');
     const configPubKey = new PublicKey(DBC_CONFIG_KEY);
     const virtualPools = await client.state.getPoolsByConfig(configPubKey);
     console.log(`[Server] Found ${virtualPools.length} pools`);
 
-    // ✅ Step 2: Calculate hotness for ALL pools (no metadata fetching)
+    // Step 2: Calculate hotness for ALL pools
     console.log('[Server] Step 2/5: Calculating hotness for all pools...');
     const allTokens: HotToken[] = [];
 
@@ -165,7 +129,6 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
           ? pool.baseMint
           : pool.baseMint.toBase58?.() || pool.baseMint.toString();
 
-        // Use pool data for initial hotness calculation
         const poolSymbol = pool.symbol || baseMintStr.substring(0, 8).toUpperCase();
         const poolName = pool.name || poolSymbol;
 
@@ -181,14 +144,13 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
           volatilityAccumulator,
         });
 
-        // Only include if it has hotness or reserves
         if (hotnessScore > 0 || pool.quoteReserve.toNumber() > 0) {
           allTokens.push({
             address: new PublicKey(poolAddress).toBase58(),
             baseMint: baseMintStr,
-            name: poolName, // Will be updated with on-chain metadata
-            symbol: poolSymbol, // Will be updated with on-chain metadata
-            imageUrl: '', // Will set after fetching images
+            name: poolName,
+            symbol: poolSymbol,
+            imageUrl: '',
             creator: creator.toBase58(),
             progress: 0,
             quoteReserve: pool.quoteReserve.toNumber() / 1e9,
@@ -201,37 +163,40 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
           });
         }
       } catch (err) {
-        console.warn('Error processing pool:', err);
         continue;
       }
     }
 
     console.log(`[Server] Calculated hotness for ${allTokens.length} tokens`);
 
-    // ✅ Step 3: Sort by hotness and take TOP 25
+    // Step 3: Sort by hotness and take TOP 25
     console.log(`[Server] Step 3/5: Sorting and taking top ${limit}...`);
     allTokens.sort((a, b) => b.hotnessScore - a.hotnessScore);
     const topTokens = allTokens.slice(0, limit);
 
-    // ✅ Step 4: Fetch Token 2022 on-chain metadata for ONLY top 25
-    // This is 1 efficient API call with 25 mints, not 25 separate calls!
-    console.log(`[Server] Step 4/5: Fetching Token 2022 on-chain metadata for top ${limit} tokens...`);
-    const dasMetadataMap = await fetchMultipleTokenMetadata(
-      topTokens.map(t => t.baseMint)
-    );
+    // Step 4: Fetch Token 2022 metadata for top 25
+    console.log(`[Server] Step 4/5: Fetching Token 2022 metadata from mint accounts...`);
+    const token2022MetadataMap = await fetchMultipleToken2022Metadata(
+      connection,
+   topTokens.map(t => t.baseMint),
+   process.env.HELIUS_API_KEY
+  );
 
-    // Update with authoritative on-chain metadata
+    // Update with actual Token 2022 symbols
     for (const token of topTokens) {
-      const dasMetadata = dasMetadataMap.get(token.baseMint);
-      if (dasMetadata) {
-        token.name = dasMetadata.name;
-        token.symbol = dasMetadata.symbol;
+      const metadata = token2022MetadataMap.get(token.baseMint);
+      if (metadata && metadata.symbol) {
+        console.log(`  Updated: ${token.symbol} → ${metadata.symbol}`);
+        token.symbol = metadata.symbol;
+        if (metadata.name) {
+          token.name = metadata.name;
+        }
       }
     }
 
-    console.log(`[Server] Got on-chain metadata for ${dasMetadataMap.size} tokens`);
+    console.log(`[Server] Got Token 2022 symbols for ${token2022MetadataMap.size} tokens`);
 
-    // ✅ Step 5: Fetch anoncoin.it images for top 25
+    // Step 5: Fetch anoncoin.it images using Token 2022 symbols
     console.log(`[Server] Step 5/5: Fetching anoncoin.it images for top ${limit} tokens...`);
     const imageMap = await fetchAnonCoinImages(topTokens.map(t => t.symbol));
 
@@ -244,8 +209,7 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
     const elapsed = Date.now() - startTime;
 
     console.log(`✅ [Server] Complete: ${topTokens.length} tokens in ${elapsed}ms`);
-    console.log(`🚀 [Server] Helius API calls: 1 (batched 25 Token 2022 metadata fetches)`);
-    console.log(`🚀 [Server] Anoncoin.it image checks: ${imageMap.size}/${limit}`);
+    console.log(`🚀 [Server] Anoncoin.it images found: ${imageMap.size}/${limit}`);
 
     return topTokens;
   } catch (err) {
@@ -254,9 +218,6 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
   }
 }
 
-/**
- * ✅ GET endpoint
- */
 export async function GET(request: NextRequest) {
   try {
     if (!DBC_CONFIG_KEY) {
@@ -279,7 +240,7 @@ export async function GET(request: NextRequest) {
         fetchedAt: Date.now() - (CACHE_TTL_MS - remainingMs),
         cacheExpiresAt: Date.now() + remainingMs,
         cacheRemainingMs: remainingMs,
-      } as HotTokensResponse);
+      });
     }
 
     // Prevent simultaneous fetches
@@ -294,10 +255,9 @@ export async function GET(request: NextRequest) {
         fetchedAt: Date.now() - (CACHE_TTL_MS - remainingMs),
         cacheExpiresAt: Date.now() + remainingMs,
         cacheRemainingMs: remainingMs,
-      } as HotTokensResponse);
+      });
     }
 
-    // Start fresh fetch
     isFetching = true;
     const fetchStartTime = Date.now();
 
@@ -313,7 +273,7 @@ export async function GET(request: NextRequest) {
         fetchedAt: fetchStartTime,
         cacheExpiresAt: Date.now() + CACHE_TTL_MS,
         cacheRemainingMs: CACHE_TTL_MS,
-      } as HotTokensResponse);
+      });
     } finally {
       isFetching = false;
       fetchPromise = null;
