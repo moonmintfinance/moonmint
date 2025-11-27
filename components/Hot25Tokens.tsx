@@ -67,14 +67,17 @@ export function HotTokens() {
           >
             <div className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 flex flex-col h-full">
               {/* Token Image Section with Rank Badge */}
-              <div className="relative w-full aspect-video bg-dark-100 border-b border-dark-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="relative w-full aspect-video border-b border-dark-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {/* Flashing Neon Background - Alternating Pink/Green */}
+                <div className="absolute inset-0 animate-neon-party"></div>
+
                 {/* Rank Badge - Top Right */}
                 <div className="absolute top-3 right-3 bg-primary-500/90 text-white text-xs font-bold px-3 py-1 rounded-lg z-10 backdrop-blur-sm">
                   #{index + 1}
                 </div>
 
                 {token.imageUrl ? (
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full z-0">
                     <Image
                       src={token.imageUrl}
                       alt={token.name}
@@ -85,7 +88,7 @@ export function HotTokens() {
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-white/50">
+                  <div className="flex flex-col items-center justify-center text-white/50 z-0">
                     <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>

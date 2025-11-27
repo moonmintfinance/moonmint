@@ -133,9 +133,12 @@ export default function MeteoraPools() {
                 className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 group flex flex-col"
               >
                 {/* Image Section */}
-                <div className="relative w-full aspect-video bg-dark-100 border-b border-dark-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="relative w-full aspect-video border-b border-dark-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {/* Flashing Neon Background - Alternating Pink/Green */}
+                  <div className="absolute inset-0 animate-neon-party"></div>
+
                   {pool.imageUrl ? (
-                    <div className="relative w-full h-full">
+                    <div className="relative w-full h-full z-0">
                       <Image
                         src={pool.imageUrl}
                         alt={pool.name || 'Token'}
@@ -149,7 +152,7 @@ export default function MeteoraPools() {
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center text-white/50">
+                    <div className="flex flex-col items-center justify-center text-white/50 z-0">
                       <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
