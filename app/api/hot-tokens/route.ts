@@ -72,18 +72,42 @@ let fetchPromise: Promise<HotToken[]> | null = null;
 function calculateHotnessScore(metrics: {
   totalTradingQuoteFee: BN;
   volatilityAccumulator: BN;
+  quoteReserve: BN;
 }): number {
+  // 1. Volume Score (Lifetime activity)
+  // Cap at ~10B units (adjust 1e9 divisor based on your token decimals/expectations)
   const volumeScore = Math.min(
     100,
     (metrics.totalTradingQuoteFee.toNumber() / 1e9) * 10
   );
 
+  // 2. Volatility Score (Recent activity intensity)
+  const volatilityVal = metrics.volatilityAccumulator.toNumber();
   const volatilityScore = Math.min(
     100,
-    (metrics.volatilityAccumulator.toNumber() / 1e6) * 0.1
+    (volatilityVal / 1e6) * 0.1
   );
 
-  return volumeScore * 0.7 + volatilityScore * 0.3;
+  // 3. Liquidity Score (Current health/TVL)
+  // Assuming 9 decimals for quote (SOL), 1000 SOL liquidity = 100 score
+  const liquidityVal = metrics.quoteReserve.toNumber() / 1e9;
+  const liquidityScore = Math.min(100, (liquidityVal / 1000) * 100);
+
+  // 4. Weighted Calculation
+  if (volatilityVal > 0) {
+    // If we have volatility data, use it for "recency"
+    return (
+      volumeScore * 0.5 +      // 50% Volume
+      volatilityScore * 0.3 +  // 30% Volatility
+      liquidityScore * 0.2     // 20% Liquidity
+    );
+  } else {
+    // Fallback for Static Fee pools (Vol = 0): Rely on Liquidity + Volume
+    return (
+      volumeScore * 0.6 +      // 60% Volume
+      liquidityScore * 0.4     // 40% Liquidity
+    );
+  }
 }
 
 function getFallbackImageUrl(symbol: string): string {
@@ -138,13 +162,15 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
 
         const volatilityAccumulator = pool.volatilityTracker?.volatilityAccumulator || new BN(0);
         const totalTradingQuoteFee = pool.metrics?.totalTradingQuoteFee || new BN(0);
+        const quoteReserve = pool.quoteReserve || new BN(0);
 
         const hotnessScore = calculateHotnessScore({
           totalTradingQuoteFee,
           volatilityAccumulator,
+          quoteReserve,
         });
 
-        if (hotnessScore > 0 || pool.quoteReserve.toNumber() > 0) {
+        if (hotnessScore > 0 || quoteReserve.toNumber() > 0) {
           allTokens.push({
             address: new PublicKey(poolAddress).toBase58(),
             baseMint: baseMintStr,
@@ -153,7 +179,7 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
             imageUrl: '',
             creator: creator.toBase58(),
             progress: 0,
-            quoteReserve: pool.quoteReserve.toNumber() / 1e9,
+            quoteReserve: quoteReserve.toNumber() / 1e9,
             baseReserve: pool.baseReserve.toString(),
             sqrtPrice: pool.sqrtPrice.toString(),
             volatility: volatilityAccumulator.toString(),
@@ -178,9 +204,9 @@ async function fetchHotTokensFromBlockchain(limit: number = 25): Promise<HotToke
     console.log(`[Server] Step 4/5: Fetching Token 2022 metadata from mint accounts...`);
     const token2022MetadataMap = await fetchMultipleToken2022Metadata(
       connection,
-   topTokens.map(t => t.baseMint),
-   process.env.HELIUS_API_KEY
-  );
+      topTokens.map(t => t.baseMint),
+      process.env.HELIUS_API_KEY
+    );
 
     // Update with actual Token 2022 symbols
     for (const token of topTokens) {

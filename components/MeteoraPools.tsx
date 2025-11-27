@@ -1,207 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Connection, PublicKey } from '@solana/web3.js';
-import { TOKEN_2022_PROGRAM_ID, getMint, getMetadataPointerState, getTokenMetadata } from '@solana/spl-token';
-import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import Image from 'next/image';
-import { SOLANA_RPC_ENDPOINT, METEORA_CONFIG } from '@/lib/constants';
-import {
-  getCachedToken2022Metadata,
-  setCachedToken2022Metadata,
-  getPendingToken2022Request,
-  setPendingToken2022Request,
-} from '@/lib/metadataCache';
 
 interface PoolInfo {
   address: string;
   baseMint: string;
-  creator: string;
   name?: string;
   symbol?: string;
-  progress: number;
   imageUrl?: string;
+  creator: string;
+  progress: number;
+  launchedAt: number;
 }
 
 interface PaginationState {
   currentPage: number;
   itemsPerPage: number;
   totalItems: number;
-}
-
-type Token2022MetadataResult = {
-  name?: string;
-  symbol?: string;
-  decimals?: number;
-  imageUrl?: string;
-};
-
-// Dedicated Gateway from Environment - Ensure this is set in .env.local
-const DEDICATED_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
-
-// IPFS Gateways - Ordered by reliability/speed
-const IPFS_GATEWAYS = [
-  '/api/ipfs',  // ← Use server proxy with Gateway Key
-  'https://gateway.pinata.cloud/ipfs',
-  'https://ipfs.io/ipfs',
-  'https://cloudflare-ipfs.com/ipfs',
-  'https://dweb.link/ipfs',
-];
-
-/**
- * Converts IPFS URI to HTTP gateway URL using the best available gateway
- */
-function convertIpfsToHttp(uri: string, gatewayIndex = 0): string {
-  if (!uri) return '';
-
-  let hash = '';
-
-  // Extract hash from various IPFS formats
-  if (uri.startsWith('ipfs://')) {
-    hash = uri.replace('ipfs://', '');
-  } else if (uri.includes('/ipfs/')) {
-    const parts = uri.split('/ipfs/');
-    if (parts.length > 1) {
-      hash = parts[1];
-    }
-  } else {
-    // Assume it's a hash if it's not http
-    if (!uri.startsWith('http')) {
-      hash = uri;
-    }
-  }
-
-  // If we found a hash, use the specified gateway
-  if (hash) {
-    // Clean hash (remove query params)
-    hash = hash.split('?')[0];
-    const gateway = IPFS_GATEWAYS[gatewayIndex % IPFS_GATEWAYS.length];
-    return `${gateway}/${hash}`;
-  }
-
-  // Return original if not an IPFS hash (e.g. standard HTTP URL)
-  return uri;
-}
-
-/**
- * Fetches the actual image URL from Token 2022 metadata
- * Handles both direct image URLs and metadata JSON URIs
- * ✅ FIXED: Properly extracts image from metadata JSON instead of returning JSON URI
- */
-async function extractImageUrl(metadata: any): Promise<string | undefined> {
-  try {
-    // ✅ Option 1: Direct image URL from DAS API
-    if (metadata.content?.links?.image) {
-      console.log('📸 Found direct image URL in DAS');
-      return convertIpfsToHttp(metadata.content.links.image);
-    }
-
-    // ✅ Option 2: Fetch metadata JSON and extract image field
-    if (metadata.content?.json_uri) {
-      const jsonUri = metadata.content.json_uri;
-      const jsonUrl = convertIpfsToHttp(jsonUri);
-
-      console.log(`📄 Fetching metadata JSON from: ${jsonUrl}`);
-      try {
-        const metadataResponse = await fetch(jsonUrl);
-        if (!metadataResponse.ok) {
-          console.warn(`⚠️ Failed to fetch metadata JSON: ${metadataResponse.status}`);
-          return undefined;
-        }
-
-        const metadataJson = await metadataResponse.json();
-
-        // Extract image from metadata JSON
-        if (metadataJson.image) {
-          console.log('🖼️ Found image URL in metadata JSON');
-          return convertIpfsToHttp(metadataJson.image);
-        }
-      } catch (err) {
-        console.warn(`⚠️ Failed to parse metadata JSON:`, err);
-        return undefined;
-      }
-    }
-
-    return undefined;
-  } catch (err) {
-    console.warn(`⚠️ Error extracting image URL:`, err);
-    return undefined;
-  }
-}
-
-/**
- * Fetches Token Metadata using DAS API
- * ✅ FIXED: Now properly extracts image URLs from metadata JSON
- */
-async function fetchTokenMetadataDAS(
-  mintAddress: string
-): Promise<Token2022MetadataResult> {
-  const defaultResult: Token2022MetadataResult = {
-    name: 'Unknown Token',
-    symbol: '???',
-    decimals: 0,
-  };
-
-  const cachedData = getCachedToken2022Metadata(mintAddress);
-  if (cachedData) {
-    return { ...cachedData, decimals: 0 };
-  }
-
-  const pendingRequest = getPendingToken2022Request(mintAddress);
-  if (pendingRequest) return pendingRequest;
-
-  const promise: Promise<Token2022MetadataResult> = (async () => {
-    try {
-      const response = await fetch(SOLANA_RPC_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 'moon-mint-asset-check',
-          method: 'getAsset',
-          params: {
-            id: mintAddress,
-            displayOptions: {
-              showFungible: true,
-              showNativeBalance: false,
-            },
-          },
-        }),
-      });
-
-      const { result } = await response.json();
-
-      if (!result) {
-        return defaultResult;
-      }
-
-      const name = result.content?.metadata?.name || result.token_info?.symbol || 'Unknown Token';
-      const symbol = result.content?.metadata?.symbol || result.token_info?.symbol || '???';
-      const decimals = result.token_info?.decimals || 0;
-
-      // ✅ FIXED: Properly extract image URL from metadata or JSON
-      const imageUrl = await extractImageUrl(result);
-
-      const metadataResult: Token2022MetadataResult = {
-        name,
-        symbol,
-        decimals,
-        imageUrl,
-      };
-
-      setCachedToken2022Metadata(mintAddress, metadataResult);
-      return metadataResult;
-
-    } catch (err) {
-      console.error(`❌ DAS API Error for ${mintAddress}:`, err);
-      return defaultResult;
-    }
-  })();
-
-  setPendingToken2022Request(mintAddress, promise);
-  return promise;
 }
 
 export default function MeteoraPools() {
@@ -213,78 +29,45 @@ export default function MeteoraPools() {
     itemsPerPage: 9,
     totalItems: 0,
   });
+  const [discoveryInProgress, setDiscoveryInProgress] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchPools = async () => {
       try {
-        const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
-        const client = new DynamicBondingCurveClient(connection, null as any);
+        setLoading(true);
+        setError(null);
 
-        console.log('🔍 Fetching Meteora virtual pools...');
-        const configKey = new PublicKey(METEORA_CONFIG.CONFIG_KEY);
-        const virtualPools = await client.state.getPoolsByConfig(configKey);
+        console.log('📡 Fetching pools from /api/new-tokens...');
+        const response = await fetch(`/api/new-tokens?limit=1000&offset=0`);
 
-        if (!isMounted) return;
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
 
-        // Type the promise return explicitly
-        const poolsWithInfo = await Promise.all(
-          virtualPools.map(async (poolItem: any): Promise<PoolInfo | null> => {
-            try {
-              const poolAddress = (poolItem as any).publicKey;
-              const pool = (poolItem as any).account;
-
-              if (!poolAddress || !pool) return null;
-
-              const poolPubKey = new PublicKey(poolAddress);
-              const baseMint = pool.baseMint;
-              const baseMintKey = typeof baseMint === 'string' ? new PublicKey(baseMint) : baseMint;
-
-              // Get progress (non-blocking if possible, or fast)
-              // We can default to 0 if this call fails to speed up loading
-              let progress = 0;
-              try {
-                 progress = await client.state.getPoolCurveProgress(poolPubKey);
-              } catch (e) {
-                 console.warn("Failed to fetch progress", e);
-              }
-
-              // Use DAS API to get metadata efficiently
-              const tokenMetadata = await fetchTokenMetadataDAS(baseMintKey.toBase58());
-
-              const info: PoolInfo = {
-                address: poolPubKey.toBase58(),
-                baseMint: baseMintKey.toBase58(),
-                creator: pool.creator.toBase58(),
-                name: tokenMetadata.name,
-                symbol: tokenMetadata.symbol,
-                imageUrl: tokenMetadata.imageUrl,
-                progress: Math.round(progress * 100),
-              };
-
-              return info;
-            } catch (err) {
-              console.error('Error processing pool:', err);
-              return null;
-            }
-          })
-        );
+        const data = await response.json();
 
         if (!isMounted) return;
 
-        const validPools = poolsWithInfo.filter((p): p is PoolInfo => p !== null);
-        setPools(validPools);
+        setPools(data.pools || []);
         setPagination((prev) => ({
           ...prev,
-          totalItems: validPools.length,
+          totalItems: data.total || 0,
           currentPage: 1,
         }));
+        setDiscoveryInProgress(data.discoveryInProgress || false);
+
+        console.log(`✅ Loaded ${data.pools?.length || 0} pools`);
       } catch (err) {
         console.error('Error fetching pools:', err);
-        if (isMounted) setError('Failed to fetch pools');
+        if (isMounted) {
+          setError('Failed to fetch pools');
+        }
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -313,8 +96,12 @@ export default function MeteoraPools() {
         <p className="text-gray-400">Discover tokens launched on Chad Mint bonding curves</p>
         {!loading && !error && pools.length > 0 && (
           <p className="text-sm text-gray-500 mt-2">
-            Showing {startIndex + 1}-{Math.min(endIndex, pagination.totalItems)} of {pagination.totalItems} tokens
+            Showing {startIndex + 1}-{Math.min(endIndex, pagination.totalItems)} of{' '}
+            {pagination.totalItems} tokens
           </p>
+        )}
+        {discoveryInProgress && (
+          <p className="text-xs text-primary-400 mt-2">🔍 Discovering new tokens in background...</p>
         )}
       </div>
 
@@ -345,10 +132,10 @@ export default function MeteoraPools() {
                 href={`/pools/${pool.baseMint}`}
                 className="bg-dark-100/50 backdrop-blur-sm border border-dark-200 hover:border-primary-500/50 rounded-xl overflow-hidden transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary-500/10 group flex flex-col"
               >
-                <div className="relative w-full aspect-video animate-gradient-bg overflow-hidden border-b border-dark-200 flex items-center justify-center flex-shrink-0 bg-dark-100">
+                {/* Image Section */}
+                <div className="relative w-full aspect-video bg-dark-100 border-b border-dark-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {pool.imageUrl ? (
                     <div className="relative w-full h-full">
-                      {/* Use unoptimized to bypass Next.js strict domain checks for external images */}
                       <Image
                         src={pool.imageUrl}
                         alt={pool.name || 'Token'}
@@ -357,49 +144,40 @@ export default function MeteoraPools() {
                         priority={false}
                         unoptimized={true}
                         onError={(e) => {
-                          // Try fallback gateway if primary fails (401/404)
-                          const target = e.currentTarget;
-                          const src = target.src;
-
-                          // Simple retry mechanism for the next gateway
-                          // This is client-side retry
-                          let nextGateway = IPFS_GATEWAYS[1]; // Try first public gateway
-                          if (src.includes(DEDICATED_GATEWAY || '')) {
-                             const hash = src.split('/').pop();
-                             if (hash) {
-                               target.src = `${nextGateway}/${hash}`;
-                               return;
-                             }
-                          }
-
-                          // If already retried or failed, hide
-                          target.style.display = 'none';
+                          e.currentTarget.style.display = 'none';
                         }}
                       />
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center text-white/50">
                       <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
                       </svg>
                       <span className="text-xs font-semibold">No Image</span>
                     </div>
                   )}
                 </div>
 
+                {/* Token Info */}
                 <div className="p-6 flex-1 flex flex-col justify-between">
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-bold text-white truncate">{pool.name}</h3>
+                      <h3 className="text-lg font-bold text-white truncate">{pool.name || 'Unknown'}</h3>
                       <span className="bg-primary-500/20 text-primary-400 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ml-2">
-                        {pool.symbol}
+                        {pool.symbol || 'TOKEN'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 font-mono truncate">
-                      Mint: {pool.baseMint.slice(0, 4)}...{pool.baseMint.slice(-4)}
+                      {pool.baseMint.slice(0, 4)}...{pool.baseMint.slice(-4)}
                     </p>
                   </div>
 
+                  {/* Progress Bar */}
                   <div className="mb-4">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs text-gray-400">Progress to DEX Migration</span>
@@ -413,6 +191,7 @@ export default function MeteoraPools() {
                     </div>
                   </div>
 
+                  {/* Trade Button */}
                   <div className="pt-4 border-t border-dark-200">
                     <button className="w-full text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors text-center">
                       Trade Now →
@@ -423,6 +202,7 @@ export default function MeteoraPools() {
             ))}
           </div>
 
+          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
               <button
