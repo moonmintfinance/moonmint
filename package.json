@@ -25,6 +25,7 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
+    "@upstash/redis": "^1.35.7",
     "@vercel/analytics": "^1.5.0",
     "bs58": "^6.0.0",
     "next": "^15.5.0",
