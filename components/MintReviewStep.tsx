@@ -39,7 +39,7 @@ export function MintReviewStep({
         {/* Token Info Card */}
         <div className="bg-dark-100 p-4 rounded border border-dark-300">
           <p className="text-xs font-bold text-primary-400 uppercase tracking-wide mb-3">
-            📌 Token Information
+            Token Information
           </p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
