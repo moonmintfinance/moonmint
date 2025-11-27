@@ -53,6 +53,26 @@ export function BotChat() {
 
     if (!input.trim() || loading) return;
 
+    // ✅ CLIENT-SIDE VALIDATION: Check length
+    if (input.length > 2000) {
+      setError('Message is too long (max 2000 characters)');
+      return;
+    }
+
+    // ✅ CLIENT-SIDE VALIDATION: Detect obvious malicious patterns
+    const suspiciousPatterns = [
+      /ignore.*previous|forget.*instructions|disregard/i,
+      /system.*prompt|jailbreak|override/i,
+      /act as|pretend to be|roleplay/i,
+      /execute.*code|eval|run.*script/i,
+    ];
+
+    if (suspiciousPatterns.some(pattern => pattern.test(input))) {
+      setError('Your message appears to contain suspicious content. Please try a regular question about Chad Mint.');
+      setInput('');
+      return;
+    }
+
     // ✅ Check if rate limited
     if (rateLimitedUntil && Date.now() < rateLimitedUntil) {
       const remainingSeconds = Math.ceil((rateLimitedUntil - Date.now()) / 1000);
@@ -94,7 +114,14 @@ export function BotChat() {
         const rateLimitUntil = Date.now() + (retryAfter * 1000);
 
         setRateLimitedUntil(rateLimitUntil);
-        setError(`Rate limited :( Please wait ${retryAfter}s before your next message`);
+        setError(`Rate limited. Please wait ${retryAfter}s before your next message`);
+        return;
+      }
+
+      // ✅ Handle 400 bad request (malicious content detected)
+      if (response.status === 400) {
+        const data = await response.json();
+        setError(data.error || 'Invalid message. Please check your input and try again.');
         return;
       }
 
@@ -197,6 +224,11 @@ export function BotChat() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Character Counter */}
+      <div className="text-xs text-gray-500 px-1 mb-2">
+        {input.length}/2000
+      </div>
+
       {/* Input Form */}
       <form onSubmit={sendMessage} className="flex gap-2 pt-4 border-t border-primary-500/30 mt-auto">
         <input
@@ -206,11 +238,11 @@ export function BotChat() {
           placeholder="Ask a question..."
           className="flex-1 min-w-0 bg-dark-50 border border-primary-500/30 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 placeholder-gray-500 disabled:opacity-50"
           disabled={loading || (rateLimitedUntil !== null && Date.now() < rateLimitedUntil)}
-          maxLength={500}
+          maxLength={2000}
         />
         <button
           type="submit"
-          disabled={loading || !input.trim() || (rateLimitedUntil !== null && Date.now() < rateLimitedUntil)}
+          disabled={loading || !input.trim() || (rateLimitedUntil !== null && Date.now() < rateLimitedUntil) || input.length > 2000}
           className="flex-shrink-0 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm"
           title={rateLimitedUntil && Date.now() < rateLimitedUntil ? `Wait ${remainingSeconds}s` : ''}
         >

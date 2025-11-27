@@ -1,6 +1,7 @@
 // app/api/bot-chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { botChatLimiter } from '@/lib/rate-limiter';
+import { sanitizeUserInput, sanitizeErrorMessage } from '@/utils/security';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -44,16 +45,34 @@ interface OpenRouterResponse {
   };
 }
 
+/**
+ * Detect potential prompt injection attempts
+ * Returns true if suspicious patterns are detected
+ */
+function detectPromptInjection(input: string): boolean {
+  const suspiciousPatterns = [
+    /ignore.*previous|forget.*instructions|disregard/i,
+    /system.*prompt|jailbreak|override/i,
+    /act as|pretend to be|role play/i,
+    /tell me.*password|credentials|secret/i,
+    /execute.*code|run.*script|eval/i,
+  ];
+
+  return suspiciousPatterns.some(pattern => pattern.test(input));
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // ✅ Get client IP
+    // ✅ Get client IP for rate limiting and logging
     const ip =
       request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip') ||
       request.headers.get('cf-connecting-ip') ||
       'unknown';
 
-    // ✅ Check rate limit
+    console.log(`[Bot Chat] New request from IP: ${ip}`);
+
+    // ✅ Check rate limit FIRST
     const rateLimitResult = await botChatLimiter.isAllowed(ip);
 
     if (!rateLimitResult.allowed) {
@@ -77,35 +96,96 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { message } = await request.json();
+    // ✅ Parse and validate request body
+    let message: string;
+    try {
+      const body = await request.json();
+      message = body.message;
+    } catch (e) {
+      console.error('[Bot Chat] Invalid JSON in request body');
+      return NextResponse.json(
+        { success: false, error: 'Invalid request format' },
+        { status: 400 }
+      );
+    }
 
+    // ✅ Type check
     if (!message || typeof message !== 'string') {
+      console.warn('[Bot Chat] Missing or invalid message field');
       return NextResponse.json(
         { success: false, error: 'Message is required' },
         { status: 400 }
       );
     }
 
+    // ✅ Length check BEFORE sanitization
+    if (message.length > 2000) {
+      console.warn(`[Bot Chat] Message too long: ${message.length} chars from ${ip}`);
+      return NextResponse.json(
+        { success: false, error: 'Message too long (max 2000 characters)' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Empty check
     if (message.trim().length === 0) {
+      console.warn('[Bot Chat] Empty message from ' + ip);
       return NextResponse.json(
         { success: false, error: 'Message cannot be empty' },
         { status: 400 }
       );
     }
 
+    // ✅ SANITIZE: Remove XSS, script patterns, dangerous characters
+    const originalMessage = message;
+    const sanitizedMessage = sanitizeUserInput(message, 1000);
+
+    // Log if sanitization changed the message
+    if (originalMessage !== sanitizedMessage) {
+      console.warn('[Bot Chat] Message sanitized (removed dangerous content)');
+      console.warn(`  Original length: ${originalMessage.length}`);
+      console.warn(`  Sanitized length: ${sanitizedMessage.length}`);
+    }
+
+    // ✅ Detect prompt injection attempts
+    if (detectPromptInjection(sanitizedMessage)) {
+      console.warn(`[Bot Chat] Potential prompt injection detected from ${ip}`);
+      console.warn(`  Message: ${sanitizedMessage.substring(0, 100)}...`);
+
+      // Don't expose the reason to user (security through obscurity)
+      return NextResponse.json(
+        { success: false, error: 'Your message could not be processed. Please try a different question.' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Final validation - ensure message is still not empty after sanitization
+    if (sanitizedMessage.trim().length === 0) {
+      console.warn('[Bot Chat] Message became empty after sanitization');
+      return NextResponse.json(
+        { success: false, error: 'Your message contains only invalid characters. Please try again.' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`[Bot Chat] Processing sanitized message: "${sanitizedMessage.substring(0, 50)}..."`);
+
+    // ✅ Check for API key
     if (!OPENROUTER_API_KEY) {
-      console.error('OPENROUTER_API_KEY not configured');
+      console.error('[Bot Chat] OPENROUTER_API_KEY not configured');
       return NextResponse.json(
         { success: false, error: 'API not configured' },
         { status: 500 }
       );
     }
 
-    // ✅ Add AbortController for timeout handling
+    // ✅ Create abort controller for timeout handling
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
     try {
+      console.log('[Bot Chat] Sending request to OpenRouter...');
+
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -123,22 +203,22 @@ export async function POST(request: NextRequest) {
             },
             {
               role: 'user',
-              content: message,
+              content: sanitizedMessage, // ✅ Use SANITIZED message
             },
           ],
-          temperature: 0.7,
+          temperature: 0.2,
           top_p: 0.9,
           max_tokens: 1000,
           reasoning: { exclude: true },
         }),
-        signal: controller.signal, // ✅ Pass abort signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('OpenRouter error:', response.status, errorData);
+        console.error('[Bot Chat] OpenRouter error:', response.status, errorData);
         return NextResponse.json(
           {
             success: false,
@@ -151,7 +231,7 @@ export async function POST(request: NextRequest) {
       const data = (await response.json()) as OpenRouterResponse;
 
       if (data.error) {
-        console.error('OpenRouter API error:', data.error);
+        console.error('[Bot Chat] OpenRouter API error:', data.error);
         return NextResponse.json(
           { success: false, error: data.error.message },
           { status: 500 }
@@ -159,7 +239,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!data.choices || !data.choices[0]) {
-        console.error('Invalid response from OpenRouter:', data);
+        console.error('[Bot Chat] Invalid response from OpenRouter:', data);
         return NextResponse.json(
           { success: false, error: 'Invalid response from AI service' },
           { status: 500 }
@@ -167,6 +247,8 @@ export async function POST(request: NextRequest) {
       }
 
       const responseText = data.choices[0].message.content.trim();
+
+      console.log('[Bot Chat] ✅ Successfully processed message');
 
       // ✅ Include rate limit info in response headers
       return NextResponse.json(
@@ -188,7 +270,7 @@ export async function POST(request: NextRequest) {
 
       // ✅ Handle timeout specifically
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('OpenRouter request timeout');
+        console.error('[Bot Chat] OpenRouter request timeout');
         return NextResponse.json(
           {
             success: false,
@@ -201,7 +283,11 @@ export async function POST(request: NextRequest) {
       throw error;
     }
   } catch (error) {
-    console.error('Chat API error:', error);
+    console.error('[Bot Chat] Fatal error:', error);
+
+    // ✅ Sanitize error message before sending to client
+    const safeErrorMessage = sanitizeErrorMessage(error);
+
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
