@@ -1,6 +1,6 @@
-#Chad Mint Finance 🌙
+**Chad Mint**
 
-The professional way to launch Solana tokens. No code required.
+The best way to launch Solana tokens.
 
 ---
 
@@ -20,7 +20,7 @@ To follow us on X visit https://x.com/chad_mint_team
 Please note this code has not been audited, use this code and our associated 
 website at your own risk. We invite all users of our code and related services
 to review this repository and notify us of any security vulnerabilities or 
-other concerns at contact@moonmint.finance
+other concerns at contact@chadmint.fun
 
 ---
 

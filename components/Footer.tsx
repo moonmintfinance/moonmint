@@ -33,16 +33,16 @@ export function Footer() {
 
           {/* Column 2 */}
           <div>
-            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Resources</h4>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Documentation</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
-                  href="https://docs.solana.com"
+                  href="/THIRD_PARTY_NOTICES.txt"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  Solana Docs
+                  Third Party Notices
                 </a>
               </li>
               <li>
@@ -62,7 +62,7 @@ export function Footer() {
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  Explorer
+                  Solana Explorer
                 </a>
               </li>
             </ul>
