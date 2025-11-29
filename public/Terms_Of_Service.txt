@@ -1,0 +1,182 @@
+Terms of Service
+
+Last Updated: November 28, 2025
+
+Welcome to Chad Mint Finance ("Chad Mint," "we," "us," or "our"). By accessing or using our website located at https://chadmint.fun (the "Site") and our decentralized applications (the "Service"), you agree to be bound by these Terms of Service ("Terms").
+
+IF YOU DO NOT AGREE TO THESE TERMS, DO NOT CONNECT YOUR WALLET OR USE THE SERVICE.
+
+1. Acceptance of Terms and Jurisdictional Disclaimers
+
+Chad Mint acts as a user interface for interacting with the Solana blockchain, Jupiter aggregator and Meteora protocol. You acknowledge that there are many other services that also interact with these protocols, and we are simply a frontend that has no affiliation with the underlying protocols.
+
+Geographic and Regulatory Restrictions:
+Chad Mint Finance does not operate in, and explicitly restricts access from, jurisdictions where cryptocurrency services, token generation, or decentralized finance are prohibited, restricted, or heavily regulated by law. If your jurisdiction requires licensing, registration, or compliance certifications for services like ours, you may not use this Service. By connecting your wallet, you confirm that use of this Service is not prohibited or restricted in your jurisdiction.
+
+GDPR Disclaimer:
+Chad Mint Finance is not compliant with the General Data Protection Regulation (GDPR) and does not intend to provide Services to individuals located in the European Union, European Economic Area, or other GDPR-regulated jurisdictions. If you are subject to GDPR, you must not use this Service. We do not offer GDPR-compliant data handling, deletion rights, or privacy protections required by EU law. Any data collected from GDPR-regulated users is collected in violation of this policy, and we assume no liability for such unauthorized collection.
+
+By connecting your cryptocurrency wallet to our Service, you confirm that:
+
+You are at least 18 years old or of legal age to form a binding contract in your jurisdiction.
+
+You are not a resident of, located in, or subject to the laws of any jurisdiction where the use of our Service is prohibited, restricted, or limited by law, including but not limited to the European Union and any GDPR-regulated jurisdiction.
+
+You understand and accept that your jurisdiction's laws may change, and it is your sole responsibility to ensure continued compliance.
+
+You have read, understood, and agreed to these Terms.
+
+2. Description of Services
+
+Chad Mint provides a suite of non-custodial tools that allow users to:
+
+Mint Tokens: Create standard SPL tokens or tokens with Metadata 2022 extensions on the Solana blockchain.
+
+Launch Pools: Deploy tokens directly into liquidity pools via Meteora bonding curves.
+
+Swap: Exchange digital assets using the Jupiter aggregator integration.
+
+Refer: Earn commissions by referring other users to the platform.
+
+AI Support: Access to AI-powered customer support chatbot.
+
+We do not have custody of your assets. We do not facilitate the purchase or sale of cryptocurrencies ourselves. All transactions are executed directly by you on the Solana blockchain.
+
+AI Chatbot Data Handling:
+Messages sent to our AI support chatbot are not logged by Chad Mint Finance, except for messages flagged as suspicious or potentially malicious. However, messages are transmitted to and processed by OpenRouter, a third-party AI service provider. You acknowledge that:
+
+OpenRouter may log, store, and retain all messages indefinitely.
+
+OpenRouter may use your messages for training, service improvement, and model optimization.
+
+We have no control over OpenRouter's data retention or use policies.
+
+By using the AI chatbot, you accept these risks and consent to your messages being processed by third parties.
+
+3. High Risk Disclaimer
+
+CRYPTOCURRENCY AND TOKEN GENERATION EVENTS ARE INHERENTLY RISKY.
+
+By using Chad Mint, you explicitly acknowledge and accept the following risks:
+
+Financial Loss: The value of tokens, including those launched via bonding curves, is extremely volatile. You may lose all funds used to mint, buy, or trade tokens.
+
+Smart Contract Risk: While we strive for security, smart contracts and blockchain software are experimental. Bugs, exploits, or network failures may result in the loss of funds.
+
+No Financial Advice: Nothing on the Site constitutes financial, investment, or legal advice. You are solely responsible for your investment decisions.
+
+Regulatory Uncertainty: Blockchain regulations are evolving. Changes in laws in your jurisdiction or Canada may impact the availability of the Service.
+
+4. Fees and Referrals
+
+Service Fees: We charge a service fee (currently 0.08 SOL base + additional fees for authority revocation) for token creation. These fees are displayed to you before you sign the transaction.
+
+Network Fees: You are responsible for all Solana network fees (gas) associated with your transactions.
+
+Referral Program: Users may earn a commission (currently 55% of the service fee) for referring others. Referral payouts are programmatic and executed on-chain. We are not responsible for payouts lost due to incorrect wallet addresses or network errors.
+
+5. User Responsibilities & Prohibited Conduct
+
+You agree NOT to use the Service to:
+
+Violate any applicable national or international law.
+
+Launch tokens that infringe on intellectual property rights, promote hate speech, or facilitate illegal activities (e.g., rug pulls, scams).
+
+Upload malicious code or content to IPFS via our interface.
+
+Engage in market manipulation or fraudulent trading practices.
+
+We reserve the right to ban your IP address or restrict access to the UI if we detect illicit activity, although we cannot restrict your interaction with the blockchain itself.
+
+**Data and Content Management:**
+
+All token metadata and images you upload are stored on IPFS (InterPlanetary File System) via Pinata. While you may request that Chad Mint remove or unpin your content from Pinata's servers, you acknowledge that:
+
+IPFS is a distributed, decentralized network. Once content is uploaded, it is replicated across multiple nodes.
+
+We can remove content from our own Pinata nodes, but we cannot guarantee removal from the broader IPFS network.
+
+Content previously accessed or cached by other users or services will likely remain accessible on the internet indefinitely.
+
+You are solely responsible for the legality, accuracy, and appropriateness of all content you upload. Chad Mint is not responsible for content remaining on IPFS or the internet after removal from our systems.
+
+6. Intellectual Property
+
+Our Code: The Chad Mint codebase is "Source Available" under the Business Source License (BSL) 1.1. Commercial production use by others requires a license.
+
+User Content: You retain ownership of the metadata and images you upload. By uploading content, you grant us a license to display it on the Service. You represent that you have the right to use any images or text you upload.
+
+7. Limitation of Liability and Risk Assumption
+
+User Assumption of Risk:
+By using Chad Mint, you acknowledge and agree that:
+
+You use the Service at your own risk and are solely responsible for your transactions.
+
+Cryptocurrency and token transactions are irreversible. Once a transaction is signed and committed to the blockchain, it cannot be undone.
+
+You are responsible for verifying all transaction details before signing with your wallet.
+
+Chad Mint provides no guarantees regarding token value, liquidity, or the success of any token launch.
+
+Limitation of Liability:
+TO THE MAXIMUM EXTENT PERMITTED BY LAW:
+
+Chad Mint Finance shall not be liable for any indirect, incidental, special, consequential, punitive, or exemplary damages, including but not limited to loss of profits, revenue, data, use, or goodwill, arising out of or in connection with your use of the Service, even if advised of the possibility of such damages.
+
+Chad Mint Finance shall not be liable for any losses arising from:
+- Your use of the Service
+- Market volatility or token price fluctuations
+- Smart contract bugs or exploits in underlying protocols (Solana, Jupiter, Meteora)
+- Network failures or blockchain congestion
+- Third-party service outages (Helius, Pinata, Vercel, Upstash, OpenRouter)
+- Your failure to secure your wallet or seed phrase
+- Your violation of these Terms
+- Any other person's use of your wallet or account
+
+Cap on Direct Liability:
+Chad Mint Finance's total aggregate liability for any and all claims arising from these Terms or your use of the Service shall not exceed the total service fees you paid to Chad Mint in the 14 days immediately preceding the claim. If you have paid no fees, our liability is $0 USD.
+
+This limitation applies regardless of the form of action (contract, tort, strict liability, negligence, or otherwise) and even if Chad Mint has been advised of the possibility of such damages.
+
+Exceptions:
+The limitations of liability do not apply to: (a) fraud or willful misconduct by Chad Mint, or (b) liability that cannot be waived by law.
+
+8. Indemnification
+
+You agree to indemnify and hold harmless Chad Mint Finance, its contractors, and licensors from any claims arising out of your use of the Service, your violation of these Terms, or your violation of any rights of another (including intellectual property rights).
+
+9. Force Majeure
+
+Chad Mint Finance shall not be liable for any failure or delay in performing its obligations under these Terms when such failure or delay results from causes beyond our reasonable control, including but not limited to:
+
+Blockchain network failures, congestion, or attacks.
+
+Failures or unavailability of third-party services (Helius, Pinata, Jupiter, Meteora, Vercel, Upstash, OpenRouter, or other service providers).
+
+Natural disasters, acts of God, war, terrorism, or government action.
+
+Internet outages or DNS failures.
+
+Distributed Denial of Service (DDoS) attacks on our infrastructure or the Solana network.
+
+Smart contract vulnerabilities or exploits in protocols we integrate with.
+
+During a Force Majeure event, we may temporarily restrict or disable access to the Service without liability. We will make reasonable efforts to resume operations, but we make no guarantees regarding timing or restoration of service.
+
+10. Governing Law and Dispute Resolution
+
+These Terms shall be governed by and construed in accordance with the Federal laws of Canada.
+
+Any dispute arising from these Terms shall be resolved through good faith negotiation and if that fails binding arbitration in accordance with the rules of the ADR Institute of Canada. The language of arbitration shall be English.
+
+11. Modifications
+
+We may update these Terms at any time. The updated version will be indicated by the "Last Updated" date. Continued use of the Service constitutes acceptance of the new Terms.
+
+12. Contact
+
+For legal inquiries, please contact us at:
+
+Email: contact@chadmint.fun

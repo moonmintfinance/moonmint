@@ -33,7 +33,7 @@ export function Footer() {
 
           {/* Column 2 */}
           <div>
-            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Documentation</h4>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Notices and Policies</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
@@ -47,22 +47,22 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://spl.solana.com"
+                  href="/Privacy_Policy.txt"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  SPL Token
+                  Privacy Policy
                 </a>
               </li>
               <li>
                 <a
-                  href="https://explorer.solana.com"
+                  href="/Terms_Of_Service.txt"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  Solana Explorer
+                  Terms of Service
                 </a>
               </li>
             </ul>
