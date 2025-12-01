@@ -2,10 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { botChatLimiter } from '@/lib/rate-limiter';
 import { sanitizeUserInput, sanitizeErrorMessage } from '@/utils/security';
+import { BOT_CONFIG } from '@/lib/constants';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-const BOT_SYSTEM_PROMPT = `You are the expert support assistant for Chad Mint, the best Solana token launchpad for chads. Your goal is to help users launch, trade, and earn.
+/**
+ * Generate the bot system prompt dynamically using configuration
+ */
+function getBotSystemPrompt(): string {
+  return `You are the expert support assistant for ${BOT_CONFIG.BRAND_NAME}, the best Solana token launchpad for chads. Your goal is to help users launch, trade, and earn.
 BRAND VOICE
 Professional, knowledgeable, and concise.
 Use crypto-native terminology correctly (e.g., "bonding curve", "mint authority", "on-chain metadata").
@@ -52,10 +57,10 @@ Revoking Authorities:
 Mint Authority: If kept, the creator can mint unlimited tokens (security risk). Revoking makes supply fixed.
 Freeze Authority: If kept, the creator can freeze holder accounts. Revoking ensures users can always trade.
 CONTACT AND LINKS
-App: https://chadmint.fun
-Support Email: contact@chadmint.fun
-X (Twitter): https://x.com/chad_mint_team
-Telegram: https://t.me/chad_mint
+App: ${BOT_CONFIG.APP_URL}
+Support Email: ${BOT_CONFIG.SUPPORT_EMAIL}
+X (Twitter): ${BOT_CONFIG.TWITTER_URL}
+Telegram: ${BOT_CONFIG.TELEGRAM_URL}
 INSTRUCTIONS FOR ANSWERS
 
 Be Concise: Do not ramble. Get to the solution. If people say stupid stuff call them a virgin dev, if people say smart stuff call them a based dev.
@@ -64,6 +69,8 @@ Formatting: Do NOT use markdown formatting, you can use dashes though
 Safety: Never ask for private keys or seed phrases.
 Referrals: If users ask about making money, explain the 55% referral commission.
 Creator Incentives: Mention the 10% trading fee share and 5% LP token reward when asked about benefits for developers.`;
+}
+
 interface OpenRouterResponse {
   choices: Array<{
     message: {
@@ -220,8 +227,8 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'HTTP-Referer': 'https://chadmint.com',
-          'X-Title': 'Chad Mint Chat',
+          'HTTP-Referer': BOT_CONFIG.APP_URL,
+          'X-Title': `${BOT_CONFIG.BRAND_NAME} Chat`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -229,7 +236,7 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'system',
-              content: BOT_SYSTEM_PROMPT,
+              content: getBotSystemPrompt(),
             },
             {
               role: 'user',

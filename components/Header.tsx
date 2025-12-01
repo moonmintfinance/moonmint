@@ -5,6 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletButton } from '@/components/WalletButton';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import { BRANDING_CONFIG } from '@/lib/constants';
 
 export function Header() {
   const pathname = usePathname();
@@ -110,15 +111,15 @@ export function Header() {
                 ></div>
                 {/* Logo Image */}
                 <Image
-                  src="/Chadmint_logo1.png"
-                  alt="Chad Mint Logo"
+                  src={BRANDING_CONFIG.LOGO}
+                  alt={`${BRANDING_CONFIG.NAME} Logo`}
                   fill
                   className="object-contain"
                   priority
                 />
               </div>
               <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter">
-                ChadMint
+                {BRANDING_CONFIG.NAME}
               </h1>
             </div>
           </a>

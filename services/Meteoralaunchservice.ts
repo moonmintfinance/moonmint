@@ -1,14 +1,10 @@
-/**
- * Meteora Bonding Curve Launch Service
- * Integrates with Meteora DBC SDK to launch tokens on bonding curves
- */
-
 import {
   Connection,
   PublicKey,
   Keypair,
   Transaction,
   LAMPORTS_PER_SOL,
+  ComputeBudgetProgram,
 } from '@solana/web3.js';
 import {
   DynamicBondingCurveClient,
@@ -188,8 +184,16 @@ export class MeteoraLaunchService {
         TRANSACTION_CONFIG.COMMITMENT
       );
 
+      // ✅ ADD PRIORITY FEE
+      // 200,000 microLamports = 0.0002 SOL max priority fee
+      // Essential for mainnet inclusion during congestion
+      const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: 200000,
+      });
+
       // STEP 1: Prepare pool creation transaction
       const poolTx = poolTxResult.createPoolTx;
+      poolTx.add(priorityFeeIx); // Prepend priority fee
       poolTx.feePayer = payer;
       poolTx.recentBlockhash = blockhash;
 
@@ -199,6 +203,7 @@ export class MeteoraLaunchService {
       // STEP 2: Prepare swap/buy transaction (if applicable)
       if (poolTxResult.swapBuyTx) {
         const swapTx = poolTxResult.swapBuyTx;
+        swapTx.add(priorityFeeIx); // Prepend priority fee
         swapTx.feePayer = payer;
         swapTx.recentBlockhash = blockhash;
 

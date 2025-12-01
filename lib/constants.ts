@@ -11,6 +11,28 @@ export const SOLANA_RPC_ENDPOINT =
     : `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}` // Server-side: direct Helius
   );
 
+// ✅ NEW: Branding Configuration
+export const BRANDING_CONFIG = {
+  NAME: process.env.NEXT_PUBLIC_JUPITER_BRANDING_NAME || 'Chad Mint',
+  LOGO: process.env.NEXT_PUBLIC_JUPITER_BRANDING_LOGO || '/Chadmint_logo1.png',
+};
+
+// ✅ NEW: Social Links Configuration
+export const SOCIAL_CONFIG = {
+  TWITTER: process.env.NEXT_PUBLIC_SOCIAL_TWITTER || 'https://x.com/chad_mint_team',
+  TELEGRAM: process.env.NEXT_PUBLIC_SOCIAL_TELEGRAM || 'https://t.me/chad_mint',
+  GITHUB: process.env.NEXT_PUBLIC_SOCIAL_GITHUB || 'https://github.com/chadmintteam/chadmint',
+};
+
+// ✅ NEW: Bot Configuration
+export const BOT_CONFIG = {
+  BRAND_NAME: process.env.NEXT_PUBLIC_JUPITER_BRANDING_NAME || 'Chad Mint',
+  SUPPORT_EMAIL: process.env.NEXT_PUBLIC_BOT_SUPPORT_EMAIL || 'contact@chadmint.fun',
+  APP_URL: process.env.NEXT_PUBLIC_BOT_APP_URL || 'https://chadmint.fun',
+  TWITTER_URL: process.env.NEXT_PUBLIC_SOCIAL_TWITTER || 'https://x.com/chad_mint_team',
+  TELEGRAM_URL: process.env.NEXT_PUBLIC_SOCIAL_TELEGRAM || 'https://t.me/chad_mint',
+};
+
 // Service fee configuration
 export const SERVICE_FEE_BASE_SOL = 0.08; // Base service fee
 export const SERVICE_FEE_AUTHORITY_SOL = 0.1; // Fee per authority (freeze or mint)
@@ -69,6 +91,6 @@ export const TOKEN_2022_CONFIG = {
 
 // Meteora
 export const METEORA_CONFIG = {
-  CONFIG_KEY: process.env.NEXT_PUBLIC_METEORA_CONFIG_KEY || '',
-  ENABLED: !!process.env.NEXT_PUBLIC_METEORA_CONFIG_KEY,
+  CONFIG_KEY: "FM1dJfjFdj2Q1ueQ4a3hbPPia93u5Tpd7qsaNseajxV5",
+  ENABLED: true,
 };

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { BRANDING_CONFIG } from '@/lib/constants';
 
 interface Message {
   id: string;
@@ -15,7 +16,7 @@ export function BotChat() {
     {
       id: '1',
       role: 'bot',
-      text: 'Welcome to Chad Mint! Ask me anything about creating Solana tokens, our referral program, or anything else you want to know about Chad Mint.',
+      text: `Welcome to ${BRANDING_CONFIG.NAME}! Ask me anything about creating Solana tokens, our referral program, or anything else you want to know about ${BRANDING_CONFIG.NAME}.`,
       timestamp: new Date(),
     },
   ]);
@@ -68,7 +69,7 @@ export function BotChat() {
     ];
 
     if (suspiciousPatterns.some(pattern => pattern.test(input))) {
-      setError('Your message appears to contain suspicious content. Please try a regular question about Chad Mint.');
+      setError('Your message appears to contain suspicious content. Please try a regular question about our service.');
       setInput('');
       return;
     }
@@ -178,7 +179,7 @@ export function BotChat() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="pb-4 border-b border-primary-500/30">
-        <h2 className="text-xl font-bold text-white">Chad Mint FAQ</h2>
+        <h2 className="text-xl font-bold text-white">{BRANDING_CONFIG.NAME} FAQ</h2>
         <p className="text-xs text-gray-400">Ask about tokens, referrals & more</p>
       </div>
 

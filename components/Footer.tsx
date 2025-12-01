@@ -1,6 +1,7 @@
 import { FaTelegram, FaGithub } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 import Image from 'next/image';
+import { BRANDING_CONFIG, SOCIAL_CONFIG } from '@/lib/constants';
 
 export function Footer() {
   return (
@@ -18,13 +19,13 @@ export function Footer() {
                 ></div>
                 {/* Logo Image */}
                 <Image
-                  src="/Chadmint_logo1.png"
-                  alt="Chad Mint Logo"
+                  src={BRANDING_CONFIG.LOGO}
+                  alt={`${BRANDING_CONFIG.NAME} Logo`}
                   fill
                   className="object-contain"
                 />
               </div>
-              <h3 className="font-black text-white uppercase tracking-tighter">ChadMint</h3>
+              <h3 className="font-black text-white uppercase tracking-tighter">{BRANDING_CONFIG.NAME}</h3>
             </div>
             <p className="text-sm text-gray-400 font-mono">
               Mint. Alpha. Snipe.
@@ -33,36 +34,16 @@ export function Footer() {
 
           {/* Column 2 */}
           <div>
-            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Resources</h4>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-wide">Notices</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
-                  href="https://docs.solana.com"
+                  href="/THIRD_PARTY_NOTICES.txt"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors font-mono"
                 >
-                  Solana Docs
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://spl.solana.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-primary-500 transition-colors font-mono"
-                >
-                  SPL Token
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://explorer.solana.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-primary-500 transition-colors font-mono"
-                >
-                  Explorer
+                  Third Party Notices
                 </a>
               </li>
             </ul>
@@ -74,7 +55,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <a
-                  href="https://x.com/chad_mint_team"
+                  href={SOCIAL_CONFIG.TWITTER}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors flex items-center font-mono"
@@ -85,7 +66,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://t.me/chad_mint"
+                  href={SOCIAL_CONFIG.TELEGRAM}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors flex items-center font-mono"
@@ -96,7 +77,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://github.com/chadmintteam/chadmint"
+                  href={SOCIAL_CONFIG.GITHUB}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-primary-500 transition-colors flex items-center font-mono"
@@ -110,7 +91,7 @@ export function Footer() {
         </div>
 
         <div className="pt-8 border-t border-primary-500/20 text-center text-sm text-gray-400 font-mono">
-          <p>© 2025 Chad Mint. All rights reserved.</p>
+          <p>© 2025 {BRANDING_CONFIG.NAME}. All rights reserved.</p>
         </div>
       </div>
     </footer>

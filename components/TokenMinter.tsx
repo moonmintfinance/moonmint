@@ -2,7 +2,7 @@
 'use client';
 
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, TransactionSignature, Keypair } from '@solana/web3.js';
+import { PublicKey, TransactionSignature, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import toast from 'react-hot-toast';
 import { AtomicToken2022MintService } from '@/services/tokenMintService';
 import { MeteoraLaunchService } from '@/services/Meteoralaunchservice';
@@ -11,6 +11,7 @@ import { ProjectLinks } from '@/services/metadataUploadService';
 import { validateTokenMetadata } from '@/utils/validation';
 import { submitGuard } from '@/utils/security';
 import { getReferralWallet } from '@/utils/referral';
+import { TRANSACTION_CONFIG } from '@/lib/constants';
 
 import { TokenForm } from './TokenForm';
 import { ImageUploadStep } from './ImageUploadStep';
@@ -222,9 +223,25 @@ export function TokenMinter() {
           poolAddress: result.poolAddress,
         });
       } else {
-        const directService = new AtomicToken2022MintService(connection);
+        // ✅ FIX: Initialize service with proper dependencies
+        const directService = new AtomicToken2022MintService(
+          connection,
+          serviceFeeRecipient,
+          referralWallet
+        );
         const mintKeypair = Keypair.generate();
         console.log('🔑 Generated Mint Keypair:', mintKeypair.publicKey.toBase58());
+
+        // ✅ FIX: Calculate fees BEFORE building transaction
+        const feeBreakdown = directService.getFeeBreakdown(flowState.config);
+        const totalFeeLamports = feeBreakdown.total;
+        const totalFeeSol = (totalFeeLamports / LAMPORTS_PER_SOL).toFixed(4);
+
+        console.log(`💰 Total service fee: ${totalFeeSol} SOL`);
+        if (referralWallet) {
+          const referrerEarnings = (feeBreakdown.referrerEarnings || 0) / LAMPORTS_PER_SOL;
+          console.log(`   Referrer earns: ${referrerEarnings.toFixed(4)} SOL`);
+        }
 
         const transaction = await directService.buildMintTransaction(
           publicKey,
@@ -234,17 +251,34 @@ export function TokenMinter() {
           serviceFeeRecipient
         );
 
+        // ✅ FIX: Get blockhash BEFORE signing
+        const latestBlockhash = await connection.getLatestBlockhash(
+          TRANSACTION_CONFIG.COMMITMENT
+        );
+        transaction.recentBlockhash = latestBlockhash.blockhash;
+        transaction.feePayer = publicKey;
+
+        // Now safe to sign
         transaction.partialSign(mintKeypair);
-
         const signature = await signTransaction(transaction);
-        const txSignature = await connection.sendRawTransaction(signature.serialize());
 
-        const latestBlockhash = await connection.getLatestBlockhash();
-        await connection.confirmTransaction({
-          signature: txSignature,
-          blockhash: latestBlockhash.blockhash,
-          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-        }, 'confirmed');
+        const txSignature = await connection.sendRawTransaction(
+          signature.serialize(),
+          {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed',
+          }
+        );
+
+        // ✅ FIX: Use same blockhash for confirmation
+        await connection.confirmTransaction(
+          {
+            signature: txSignature,
+            blockhash: latestBlockhash.blockhash,
+            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+          },
+          'confirmed'
+        );
 
         console.log('✅ Direct mint successful:', txSignature);
         toast.success('✅ Token created successfully!', { id: loadingToast });
@@ -342,14 +376,14 @@ export function TokenMinter() {
           />
         )}
 
-        {flowState.step === 'review' && (
+        {flowState.step === 'review' && flowState.config && (
           <MintReviewStep
             metadata={flowState.metadata as TokenMetadata}
-            config={flowState.config!}
+            config={flowState.config}
             launchType={flowState.launchType!}
             imageIpfsUri={flowState.imageIpfsUri}
             metadataUri={flowState.metadataUri!}
-            totalFee={0}
+            totalFee={calculateTotalFee(flowState.config, flowState.launchType!)}
             onConfirm={handleConfirmMint}
             onBack={goBackToMetadataUpload}
             isLoading={false}
@@ -368,4 +402,28 @@ export function TokenMinter() {
       </div>
     </section>
   );
+}
+
+// ✅ Helper function to calculate total fee based on launch type and config
+function calculateTotalFee(config: MintConfig, launchType: LaunchType): number {
+  if (launchType === LaunchType.METEORA) {
+    // Meteora fees are 0 (only user's "first buy" amount is charged)
+    return 0;
+  }
+
+  // Direct mint: calculate from service fee constants
+  const SERVICE_FEE_BASE_LAMPORTS = 0.08 * LAMPORTS_PER_SOL; // 0.08 SOL
+  const SERVICE_FEE_AUTHORITY_LAMPORTS = 0.1 * LAMPORTS_PER_SOL; // 0.1 SOL
+
+  let totalFee = SERVICE_FEE_BASE_LAMPORTS;
+
+  if (config.mintAuthority) {
+    totalFee += SERVICE_FEE_AUTHORITY_LAMPORTS;
+  }
+
+  if (config.freezeAuthority) {
+    totalFee += SERVICE_FEE_AUTHORITY_LAMPORTS;
+  }
+
+  return totalFee;
 }

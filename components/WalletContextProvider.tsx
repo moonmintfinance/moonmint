@@ -6,7 +6,7 @@ import { UnifiedWalletProvider } from '@jup-ag/wallet-adapter';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { SOLANA_RPC_ENDPOINT, TRANSACTION_CONFIG } from '@/lib/constants';
+import { SOLANA_RPC_ENDPOINT, TRANSACTION_CONFIG, SOLANA_NETWORK, BRANDING_CONFIG } from '@/lib/constants';
 
 interface WalletContextProviderProps {
   children: ReactNode;
@@ -40,28 +40,36 @@ const WalletNotification = {
 export function WalletContextProvider({ children }: WalletContextProviderProps) {
   const queryClient = useMemo(() => new QueryClient(), []);
 
-  // ✅ Use the RPC proxy endpoint from constants
+  // ✅ Use the RPC proxy endpoint from constants (for HTTP requests)
   const endpoint = useMemo(() => SOLANA_RPC_ENDPOINT, []);
+
+  // ✅ Determine correct WSS endpoint based on network
+  // This prevents web3.js from trying to use wss://chadmint.fun/api/rpc which fails
+  const wsEndpoint = useMemo(() => {
+    if (SOLANA_NETWORK === 'devnet') return 'wss://api.devnet.solana.com';
+    if (SOLANA_NETWORK === 'testnet') return 'wss://api.testnet.solana.com';
+    return 'wss://api.mainnet-beta.solana.com';
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-     <ConnectionProvider
-  endpoint={endpoint}
-  config={{
-    commitment: TRANSACTION_CONFIG.COMMITMENT as any,
-    wsEndpoint: undefined,  // ← ADD THIS LINE
-  }}
-  >
+      <ConnectionProvider
+        endpoint={endpoint}
+        config={{
+          commitment: TRANSACTION_CONFIG.COMMITMENT as any,
+          wsEndpoint: wsEndpoint, // ✅ Explicitly use public WSS to avoid proxy errors
+        }}
+      >
         <UnifiedWalletProvider
           wallets={[]} /* Pass an empty array to rely on standard detection */
           config={{
             autoConnect: true,
-            env: (process.env.NEXT_PUBLIC_SOLANA_NETWORK as WalletAdapterNetwork) || 'mainnet-beta',
+            env: (SOLANA_NETWORK as WalletAdapterNetwork),
             metadata: {
-              name: 'ChadMint',
-              description: 'ChadMint',
-              url: 'https://chadmint.fun',
-              iconUrls: ['https://chadmint.fun/Chadmint_logo1.png'],
+              name: BRANDING_CONFIG.NAME,
+              description: BRANDING_CONFIG.NAME,
+              url: typeof window !== 'undefined' ? window.location.origin : 'https://example.com',
+              iconUrls: [BRANDING_CONFIG.LOGO],
             },
             notificationCallback: WalletNotification,
             theme: 'dark',
