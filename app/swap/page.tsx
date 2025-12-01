@@ -3,6 +3,9 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { JupiterPlugin } from '@/components/JupiterPlugin';
+import { BRANDING_CONFIG } from '@/lib/constants';
+
+
 
 export default function TradePage() {
   return (
@@ -12,7 +15,7 @@ export default function TradePage() {
       <div className="flex-grow container mx-auto px-6 pt-24 md:pt-28 pb-20 max-w-2xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">
-            Chad Mint Swap
+            {BRANDING_CONFIG.NAME} Swap
           </h1>
           <p className="text-gray-400">
             Instantly swap any Solana token
