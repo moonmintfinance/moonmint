@@ -6,7 +6,7 @@ import { UnifiedWalletProvider } from '@jup-ag/wallet-adapter';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { SOLANA_RPC_ENDPOINT, TRANSACTION_CONFIG, SOLANA_NETWORK } from '@/lib/constants';
+import { SOLANA_RPC_ENDPOINT, TRANSACTION_CONFIG, SOLANA_NETWORK, BRANDING_CONFIG } from '@/lib/constants';
 
 interface WalletContextProviderProps {
   children: ReactNode;
@@ -66,10 +66,10 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
             autoConnect: true,
             env: (SOLANA_NETWORK as WalletAdapterNetwork),
             metadata: {
-              name: 'ChadMint',
-              description: 'ChadMint',
-              url: 'https://chadmint.fun',
-              iconUrls: ['https://chadmint.fun/Chadmint_logo1.png'],
+              name: BRANDING_CONFIG.NAME,
+              description: BRANDING_CONFIG.NAME,
+              url: typeof window !== 'undefined' ? window.location.origin : 'https://example.com',
+              iconUrls: [BRANDING_CONFIG.LOGO],
             },
             notificationCallback: WalletNotification,
             theme: 'dark',

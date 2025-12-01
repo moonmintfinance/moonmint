@@ -2,6 +2,7 @@
 
 import { NATIVE_MINT } from '@solana/spl-token';
 import { JupiterPlugin } from './JupiterPlugin';
+import { BRANDING_CONFIG } from '@/lib/constants';
 import type { FormProps } from '@/types/jupiter';
 
 interface PoolContentProps {
@@ -94,10 +95,6 @@ export function PoolContent({ mint }: PoolContentProps) {
               <JupiterPlugin
                 displayMode="integrated"
                 formProps={jupiterFormProps}
-                branding={{
-                  name: 'Chad Mint',
-                  logoUri: '/Chadmint_logo1.png',
-                }}
               />
             </div>
           </div>
