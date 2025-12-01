@@ -54,12 +54,12 @@ export function MintSuccess({
         </div>
         <h3 className="text-2xl font-bold text-white mb-2">
           {launchType === LaunchType.METEORA
-            ? `Token Launched on ${BRANDING_CONFIG.NAME}'s bonding curve!`
+            ? `Token Launched on a Meteora bonding curve!`
             : 'Token Created Successfully'}
         </h3>
         <p className="text-gray-400">
           {launchType === LaunchType.METEORA
-            ? `Your token is now live on ${BRANDING_CONFIG.NAME}'s bonding curve, powered by Meteora. It may take a few minutes to display on SOLSCAN.`
+            ? `Your token is now live on a Meteora bonding curve. It may take a few minutes to display on SOLSCAN.`
             : 'Your token has been minted on the Solana blockchain. It may take a few minutes to display on SOLSCAN.'}
         </p>
       </div>
